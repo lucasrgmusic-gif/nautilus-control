@@ -77,14 +77,51 @@
     }
 
     document.getElementById('btn-init').onclick = async () => {
-        try {
-            midiAccess = await navigator.requestMIDIAccess({ sysex: true });
-            const i = document.getElementById('midi-in'), o = document.getElementById('midi-out');
-            i.innerHTML = ''; o.innerHTML = '';
-            midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
-            midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
-        } catch(e) { alert("Erro MIDI: Verifique se está em HTTPS ou App Instalado."); }
-    };
+    try {
+        // 1. Verifica se a API existe no navegador
+        if (!navigator.requestMIDIAccess) {
+            alert("Este navegador não suporta MIDI. Use o Chrome ou Edge.");
+            return;
+        }
+
+        // 2. Tenta obter acesso com permissões explícitas de Sysex
+        // Adicionamos um log para debugar no console do celular
+        console.log("Solicitando acesso MIDI...");
+        
+        midiAccess = await navigator.requestMIDIAccess({ 
+            sysex: true, 
+            software: true 
+        });
+
+        // 3. Limpa e popula os seletores
+        const i = document.getElementById('midi-in');
+        const o = document.getElementById('midi-out');
+        i.innerHTML = ''; 
+        o.innerHTML = '';
+
+        if (midiAccess.inputs.size === 0) {
+            alert("Nenhum dispositivo MIDI encontrado. Conecte o Nautilus via OTG.");
+        }
+
+        midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
+        midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
+
+        // 4. Escuta mudanças de conexão (se plugar o cabo depois de abrir)
+        midiAccess.onstatechange = (e) => {
+            console.log("Mudança no estado MIDI:", e.port.name, e.port.state);
+        };
+
+        console.log("MIDI Habilitado com sucesso!");
+        // Opcional: mudar cor do botão para indicar sucesso
+        document.getElementById('btn-init').style.background = "var(--success)";
+        document.getElementById('btn-init').innerText = "MIDI PRONTO";
+
+    } catch (err) {
+        console.error("Falha ao acessar MIDI:", err);
+        alert("ERRO CRÍTICO: " + err.message + "\n\nCertifique-se de que o site está em HTTPS e que você deu permissão de hardware.");
+    }
+};
+
 
     document.getElementById('btn-ok').onclick = async () => {
         input = midiAccess.inputs.get(document.getElementById('midi-in').value);
