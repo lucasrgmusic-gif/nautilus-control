@@ -235,5 +235,20 @@
 
     document.getElementById('btn-reset').onclick = resetGeral;
 </script>
+<script>
+// Registra o Service Worker para permitir uso Offline
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('data:text/javascript;base64,' + btoa(`
+    const cacheName = 'nautilus-v1';
+    const assets = ['./', './index.html'];
+    self.addEventListener('install', e => {
+      e.waitUntil(caches.open(cacheName).then(cache => cache.addAll(assets)));
+    });
+    self.addEventListener('fetch', e => {
+      e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
+    });
+  `)).then(() => console.log("Offline Ready"));
+}
+</script>
 </body>
 </html>
