@@ -1,30 +1,27 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nautilus Pro A11</title>
+    <!-- Link para o Manifest (Essencial para Offline MIDI) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a84ff">
     <style>
         :root { --bg: #080808; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; height: 100vh; }
         .screen { display: none; height: 100vh; flex-direction: column; }
         .active { display: flex; }
-        
         #setup { justify-content: center; align-items: center; gap: 15px; padding: 20px; }
         select, button { width: 90%; padding: 18px; font-size: 16px; border-radius: 12px; border: 1px solid #333; background: #1c1c1e; color: white; }
-        
         #main { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr; height: 100vh; }
         .quadrant { border: 0.5px solid #222; padding: 15px; display: flex; flex-direction: column; justify-content: center; }
-        
         .info-label { font-size: 10px; color: #666; text-transform: uppercase; margin-bottom: 2px; }
         .info-val { font-size: 19px; font-weight: 700; margin-bottom: 8px; color: var(--accent); }
         .status-text { font-size: 16px; font-weight: 700; }
-
         .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 70%; gap: 6px; }
         .bar-container { width: 22%; height: 100%; background: #1a1a1a; border-radius: 3px; position: relative; overflow: hidden; border: 1px solid #333; }
         .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); }
-
         #btn-reset { grid-column: span 2; background: transparent; border: 2px solid var(--danger); color: var(--danger); font-size: 20px; font-weight: 800; margin: 15px; border-radius: 15px; text-transform: uppercase; }
         #btn-reset:active { background: var(--danger); color: white; }
     </style>
@@ -48,7 +45,6 @@
             <div id="disp-mode" class="info-val" style="font-size: 16px;">Natural</div>
             <div id="txt-active" class="status-text" style="color: var(--success);">CONTROLE ATIVO</div>
         </div>
-
         <div class="quadrant">
             <div class="mixer">
                 <div class="bar-container"><div id="bar101" class="bar-fill"></div></div>
@@ -60,7 +56,6 @@
                 <span>101</span><span>102</span><span>103</span><span>104</span>
             </div>
         </div>
-
         <button id="btn-reset">RESET GERAL</button>
     </div>
 
@@ -74,11 +69,21 @@
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
 
+    // Registro do Service Worker para modo Offline
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then(() => console.log("SW registrado para MIDI Offline"))
+            .catch(err => console.log("Erro SW:", err));
+    }
+
     document.getElementById('btn-init').onclick = async () => {
-        midiAccess = await navigator.requestMIDIAccess({ sysex: true });
-        const i = document.getElementById('midi-in'), o = document.getElementById('midi-out');
-        midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
-        midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
+        try {
+            midiAccess = await navigator.requestMIDIAccess({ sysex: true });
+            const i = document.getElementById('midi-in'), o = document.getElementById('midi-out');
+            i.innerHTML = ''; o.innerHTML = '';
+            midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
+            midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
+        } catch(e) { alert("Erro MIDI: Verifique se está em HTTPS ou App Instalado."); }
     };
 
     document.getElementById('btn-ok').onclick = async () => {
@@ -109,12 +114,10 @@
     async function resetGeral() {
         if (transInterval) clearInterval(transInterval);
         transInterval = null;
-        
         document.getElementById('disp-time').innerText = "0.0s";
         document.getElementById('disp-trans').innerText = "Início";
         currentTransition = "Início";
 
-        // Sequência de Reset Sysex solicitada
         await sendSysex([0x43, 0x0F, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x01]);
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]);
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
@@ -132,7 +135,6 @@
         if (transInterval) clearInterval(transInterval);
         let step = 0; const steps = 40; 
         const startValues = { ...ccLevels };
-
         transInterval = setInterval(() => {
             step++;
             const ratio = step / steps;
@@ -149,14 +151,10 @@
     function handleMidi(e) {
         const d = Array.from(e.data);
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
-
         if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { setStatus(true); resetGeral(); }
         if (hex.includes("5D 6D 05 00 00 03 00 00 00 00")) setStatus(false);
-
         if (!isMidiActive) return;
-
         if (hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2]);
-
         if (hex.includes("5D 43 1B 00 00 06")) {
             const v11 = d[11], v14 = d[14];
             if (v11 === 1 && v14 === 1) setKeyboardMode("Baixo");
@@ -175,12 +173,10 @@
     function handleTransitionTrigger(code) {
         const old = currentTransition;
         let targets = {}, next = "";
-        
         if (code === 0) { next = "Início"; targets = {101:127, 102:0, 103:0, 104:0}; }
         else if (code === 1) { next = "ParteA"; targets = {101:115, 102:115, 103:0, 104:0}; }
         else if (code === 2) { next = "ParteB"; targets = {101:105, 102:105, 103:80, 104:50}; }
         else if (code === 3) { next = "Final"; targets = {101:80, 102:80, 103:127, 104:127}; }
-
         const isLow = (t) => t === "Início" || t === "ParteA";
         if (isLow(old) && !isLow(next)) {
             sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
@@ -189,7 +185,6 @@
             sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
             sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
         }
-
         currentTransition = next;
         document.getElementById('disp-trans').innerText = next;
         runTransition(targets);
@@ -199,7 +194,6 @@
         const old = currentKeyboardMode;
         currentKeyboardMode = mode;
         document.getElementById('disp-mode').innerText = mode;
-
         if (mode === "Natural") {
             sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
             sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
@@ -235,21 +229,6 @@
     }
 
     document.getElementById('btn-reset').onclick = resetGeral;
-</script>
-<script>
-// Registra o Service Worker para permitir uso Offline
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('data:text/javascript;base64,' + btoa(`
-    const cacheName = 'nautilus-v1';
-    const assets = ['./', './index.html'];
-    self.addEventListener('install', e => {
-      e.waitUntil(caches.open(cacheName).then(cache => cache.addAll(assets)));
-    });
-    self.addEventListener('fetch', e => {
-      e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
-    });
-  `)).then(() => console.log("Offline Ready"));
-}
 </script>
 </body>
 </html>
