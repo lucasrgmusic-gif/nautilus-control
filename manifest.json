@@ -6,6 +6,7 @@
   "background_color": "#080808",
   "theme_color": "#0a84ff",
   "orientation": "portrait",
+  "scope": "/nautilus-control/",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com",
