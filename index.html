@@ -24,6 +24,14 @@
         .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); }
         #btn-reset { grid-column: span 2; background: transparent; border: 2px solid var(--danger); color: var(--danger); font-size: 20px; font-weight: 800; margin: 15px; border-radius: 15px; text-transform: uppercase; }
         #btn-reset:active { background: var(--danger); color: white; }
+        html, body {
+    position: fixed;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    user-select: none; /* Evita que selecione texto ao tocar rápido */
+    -webkit-tap-highlight-color: transparent; /* Remove o quadrado cinza ao tocar */
+    }
     </style>
 </head>
 <body>
@@ -173,19 +181,34 @@
     }
 
     function handleMidi(e) {
-        const d = Array.from(e.data);
-        const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
-        if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { setStatus(true); resetGeral(); }
-        if (hex.includes("5D 6D 05 00 00 03 00 00 00 00")) setStatus(false);
-        if (!isMidiActive) return;
-        if (hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2]);
-        if (hex.includes("5D 43 1B 00 00 06")) {
-            const v11 = d[11], v14 = d[14];
-            if (v11 === 1 && v14 === 1) setKeyboardMode("Baixo");
-            else if (v11 === 0 && v14 === 1) setKeyboardMode("Solo");
-            else setKeyboardMode("Natural");
-        }
+    const d = Array.from(e.data);
+    const cmd = d[0] & 0xF0; // Pega o comando (ex: 0xC0)
+    const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+
+    // --- DETECÇÃO DE TROCA DE TIMBRE (SET LIST / COMBI) ---
+    // 0xC0 é Program Change. Se receber qualquer PC, faz o reset geral.
+    if (cmd === 0xC0) {
+        console.log("Troca de timbre detectada! Resetando...");
+        resetGeral();
+        return; // Sai da função para não processar o PC como outra coisa
     }
+
+    // --- RESTANTE DA LÓGICA EXISTENTE ---
+    if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { setStatus(true); resetGeral(); }
+    if (hex.includes("5D 6D 05 00 00 03 00 00 00 00")) setStatus(false);
+
+    if (!isMidiActive) return;
+
+    if (hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2]);
+
+    if (hex.includes("5D 43 1B 00 00 06")) {
+        const v11 = d[11], v14 = d[14];
+        if (v11 === 1 && v14 === 1) setKeyboardMode("Baixo");
+        else if (v11 === 0 && v14 === 1) setKeyboardMode("Solo");
+        else setKeyboardMode("Natural");
+    }
+}
+
 
     function setStatus(active) {
         isMidiActive = active;
