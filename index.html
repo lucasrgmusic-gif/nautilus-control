@@ -291,6 +291,28 @@ html, body {
     }
 
     document.getElementById('btn-reset').onclick = resetGeral;
+
+    let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); // Previne o prompt automático
+    deferredPrompt = e; // Salva o evento para disparar no clique
+    console.log("PWA Instalável detectado!");
+    
+    // Altera o botão de "Habilitar MIDI" para também instalar o app no primeiro clique
+    const btnInit = document.getElementById('btn-init');
+    const originalFunc = btnInit.onclick;
+    
+    btnInit.onclick = async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt(); // Mostra o pop-up de instalação
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') console.log('Usuário instalou o app');
+            deferredPrompt = null;
+        }
+        if (originalFunc) originalFunc(); // Executa a função MIDI original
+    };
+});
+
 </script>
 </body>
 </html>
