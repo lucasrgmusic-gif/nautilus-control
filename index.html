@@ -78,49 +78,36 @@
 
     document.getElementById('btn-init').onclick = async () => {
     try {
-        // 1. Verifica se a API existe no navegador
-        if (!navigator.requestMIDIAccess) {
-            alert("Este navegador não suporta MIDI. Use o Chrome ou Edge.");
+        // 1. Verificar se o contexto é seguro (necessário para MIDI)
+        if (!window.isSecureContext) {
+            alert("Erro: O MIDI exige HTTPS ou localhost (Contexto Seguro).");
             return;
         }
 
-        // 2. Tenta obter acesso com permissões explícitas de Sysex
-        // Adicionamos um log para debugar no console do celular
-        console.log("Solicitando acesso MIDI...");
+        // 2. Solicitar acesso (Agora requer permissão explícita no Chrome 124+)
+        console.log("Solicitando permissão MIDI...");
+        midiAccess = await navigator.requestMIDIAccess({ sysex: true });
+
+        // 3. Atualizar interface
+        const ins = document.getElementById('midi-in'), outs = document.getElementById('midi-out');
+        ins.innerHTML = ''; outs.innerHTML = '';
+        midiAccess.inputs.forEach(p => ins.add(new Option(p.name, p.id)));
+        midiAccess.outputs.forEach(p => outs.add(new Option(p.name, p.id)));
         
-        midiAccess = await navigator.requestMIDIAccess({ 
-            sysex: true, 
-            software: true 
-        });
-
-        // 3. Limpa e popula os seletores
-        const i = document.getElementById('midi-in');
-        const o = document.getElementById('midi-out');
-        i.innerHTML = ''; 
-        o.innerHTML = '';
-
-        if (midiAccess.inputs.size === 0) {
-            alert("Nenhum dispositivo MIDI encontrado. Conecte o Nautilus via OTG.");
-        }
-
-        midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
-        midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
-
-        // 4. Escuta mudanças de conexão (se plugar o cabo depois de abrir)
-        midiAccess.onstatechange = (e) => {
-            console.log("Mudança no estado MIDI:", e.port.name, e.port.state);
-        };
-
-        console.log("MIDI Habilitado com sucesso!");
-        // Opcional: mudar cor do botão para indicar sucesso
-        document.getElementById('btn-init').style.background = "var(--success)";
-        document.getElementById('btn-init').innerText = "MIDI PRONTO";
+        document.getElementById('btn-init').style.backgroundColor = "var(--success)";
+        document.getElementById('btn-init').innerText = "MIDI Conectado";
+        console.log("Acesso concedido!");
 
     } catch (err) {
-        console.error("Falha ao acessar MIDI:", err);
-        alert("ERRO CRÍTICO: " + err.message + "\n\nCertifique-se de que o site está em HTTPS e que você deu permissão de hardware.");
+        if (err.name === "SecurityError") {
+            alert("Permissão negada pelo navegador. Verifique as configurações de site.");
+        } else {
+            alert("Falha ao acessar MIDI: " + err.message);
+        }
+        console.error(err);
     }
 };
+
 
 
     document.getElementById('btn-ok').onclick = async () => {
