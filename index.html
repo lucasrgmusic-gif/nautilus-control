@@ -3,63 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nautilus Horiz</title>
+    <title>Nautilus UltraDisplay</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        :root { --bg: #080808; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #161618; }
+        :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
         
-        /* Ajuste para Horizontal no A11 */
         body { 
-            margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; 
-            overflow: hidden; height: 100vh; width: 100vw;
+            margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, sans-serif; 
+            overflow: hidden; height: 100vh; width: 100vw; display: flex;
         }
 
-        .screen { display: none; height: 100%; width: 100%; }
+        .screen { display: none; width: 100%; height: 100%; }
         .active { display: flex; }
         
         /* TELA 1: SETUP */
         #setup { flex-direction: column; justify-content: center; align-items: center; gap: 10px; }
-        select, button { width: 60%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #1c1c1e; color: white; font-size: 14px; }
+        select, button { width: 50%; padding: 15px; border-radius: 10px; border: 1px solid #333; background: #1c1c1e; color: white; }
 
-        /* TELA 2: MAIN HORIZONTAL */
-        #main { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; /* Esquerda e Direita */
-            grid-template-rows: 1fr 1fr;    /* Cima e Baixo */
-            height: 92vh; /* Desconto para barras do sistema */
-            width: 100vw;
+        /* TELA 2: HORIZONTAL SPLIT */
+        #main { display: flex; width: 100vw; height: 100vh; }
+
+        /* Lado Esquerdo: Display Gigante */
+        .q-display { 
+            flex: 1.2; padding: 20px; display: flex; flex-direction: column; 
+            justify-content: space-around; border-right: 1px solid #222; background: var(--bg);
         }
+        .info-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 2px; }
+        .val-trans { font-size: 60px; font-weight: 900; color: var(--accent); line-height: 1; }
+        .val-time { font-size: 40px; font-weight: 700; color: #fff; }
+        .val-mode { font-size: 35px; font-weight: 700; color: var(--text); }
+        .status-text { font-size: 20px; font-weight: 800; border-top: 1px solid #222; padding-top: 10px; }
 
-        .quadrant { border: 0.5px solid #222; padding: 10px; display: flex; flex-direction: column; justify-content: center; background: var(--panel); }
-
-        /* Quadrante Sup Esq: Display */
-        .q-display { grid-area: 1 / 1 / 2 / 2; }
-        .info-label { font-size: 9px; color: #666; text-transform: uppercase; }
-        .info-val { font-size: 18px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
-
-        /* Quadrante Inf Esq: Barras CC */
-        .q-mixer { grid-area: 2 / 1 / 3 / 2; }
-        .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 65%; gap: 4px; }
-        .bar-container { width: 20%; height: 100%; background: #000; border-radius: 3px; position: relative; overflow: hidden; border: 1px solid #333; }
-        .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); transition: height 0.1s; }
-        .cc-label { font-size: 8px; text-align: center; color: #555; margin-top: 4px; }
-
-        /* Quadrantes da Direita: Botão RESET */
-        #btn-reset { 
-            grid-area: 1 / 2 / 3 / 3; /* Ocupa as duas linhas da coluna 2 */
-            background: #1c1c1e; border: 2px solid var(--danger); color: var(--danger);
-            font-size: 35px; font-weight: 900; border-radius: 15px; margin: 10px;
-            text-transform: uppercase; cursor: pointer;
+        /* Lado Direito: Mixer CC */
+        .q-mixer { 
+            flex: 0.8; padding: 20px; display: flex; flex-direction: column; 
+            justify-content: center; background: var(--panel); 
         }
-        #btn-reset:active { background: var(--danger); color: white; }
-
-        .status-text { font-size: 14px; font-weight: 700; margin-top: 5px; }
+        .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 80%; gap: 10px; }
+        .bar-container { width: 22%; height: 100%; background: #000; border-radius: 5px; position: relative; overflow: hidden; border: 1px solid #333; }
+        .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); }
+        .cc-label { font-size: 14px; text-align: center; color: #888; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="setup" class="screen active">
-        <h3 style="color: var(--accent); margin:0;">Nautilus Landscape</h3>
+        <h2 style="color: var(--accent)">Nautilus Pro</h2>
         <button id="btn-init">HABILITAR MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -67,18 +56,23 @@
     </div>
 
     <div id="main" class="screen">
-        <!-- SUP ESQ: DISPLAY -->
-        <div class="quadrant q-display">
-            <div class="info-label">Transição / Tempo</div>
-            <div id="disp-trans" class="info-val">Início</div>
-            <div id="disp-time" class="info-val" style="color: #fff;">0.0s</div>
-            <div class="info-label">Modo / Status</div>
-            <div id="disp-mode" class="info-val" style="font-size: 15px;">Natural</div>
-            <div id="txt-active" class="status-text" style="color: var(--success);">ATIVO</div>
+        <div class="q-display">
+            <div>
+                <div class="info-label">Transição</div>
+                <div id="disp-trans" class="val-trans">Início</div>
+            </div>
+            <div>
+                <div class="info-label">Tempo Restante</div>
+                <div id="disp-time" class="val-time">0.0s</div>
+            </div>
+            <div>
+                <div class="info-label">Modo Teclado</div>
+                <div id="disp-mode" class="val-mode">Natural</div>
+            </div>
+            <div id="txt-active" class="status-text" style="color: var(--success);">CONTROLE ATIVO</div>
         </div>
 
-        <!-- INF ESQ: MIXER -->
-        <div class="quadrant q-mixer">
+        <div class="q-mixer">
             <div class="mixer">
                 <div class="bar-container"><div id="bar101" class="bar-fill"></div></div>
                 <div class="bar-container"><div id="bar102" class="bar-fill"></div></div>
@@ -90,9 +84,6 @@
                 <span class="cc-label">103</span><span class="cc-label">104</span>
             </div>
         </div>
-
-        <!-- DIREITA: RESET -->
-        <button id="btn-reset">RESET</button>
     </div>
 
 <script>
@@ -105,31 +96,17 @@
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
 
-    // --- FUNÇÃO MANTER TELA ACESA ---
     async function requestWakeLock() {
-        try {
-            if ('wakeLock' in navigator) {
-                wakeLock = await navigator.wakeLock.request('screen');
-                console.log("Tela sempre acesa!");
-            }
-        } catch (err) { console.log("WakeLock falhou", err); }
+        try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
     }
 
-    // --- MIDI SETUP ---
     document.getElementById('btn-init').onclick = async () => {
-        try {
-            midiAccess = await navigator.requestMIDIAccess({ sysex: true });
-            updatePorts();
-            requestWakeLock(); // Ativa ao habilitar MIDI
-        } catch(e) { alert("MIDI Negado. Verifique HTTPS."); }
-    };
-
-    function updatePorts() {
+        midiAccess = await navigator.requestMIDIAccess({ sysex: true });
         const i = document.getElementById('midi-in'), o = document.getElementById('midi-out');
-        i.innerHTML = ''; o.innerHTML = '';
         midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
         midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
-    }
+        requestWakeLock();
+    };
 
     document.getElementById('btn-ok').onclick = async () => {
         input = midiAccess.inputs.get(document.getElementById('midi-in').value);
@@ -187,6 +164,7 @@
         if (!isMidiActive) return;
 
         if (hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2]);
+        
         if (hex.includes("5D 43 1B 00 00 06")) {
             const v11 = d[11], v14 = d[14];
             if (v11 === 1 && v14 === 1) setKeyboardMode("Baixo");
@@ -198,17 +176,27 @@
     function setStatus(active) {
         isMidiActive = active;
         const el = document.getElementById('txt-active');
-        el.innerText = active ? "ATIVO" : "INATIVO";
+        el.innerText = active ? "CONTROLE ATIVO" : "CONTROLE INATIVO";
         el.style.color = active ? "var(--success)" : "var(--danger)";
     }
 
     function handleTransitionTrigger(code) {
+        const old = currentTransition;
         let targets = {}, next = "";
         if (code === 0) { next = "Início"; targets = {101:127, 102:0, 103:0, 104:0}; }
         else if (code === 1) { next = "ParteA"; targets = {101:115, 102:115, 103:0, 104:0}; }
         else if (code === 2) { next = "ParteB"; targets = {101:105, 102:105, 103:80, 104:50}; }
         else if (code === 3) { next = "Final"; targets = {101:80, 102:80, 103:127, 104:127}; }
         
+        const isLow = (t) => t === "Início" || t === "ParteA";
+        if (isLow(old) && !isLow(next)) {
+            sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
+            sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
+        } else if (!isLow(old) && isLow(next)) {
+            sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
+            sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
+        }
+
         currentTransition = next;
         document.getElementById('disp-trans').innerText = next;
         runTransition(targets);
@@ -230,24 +218,37 @@
     }
 
     async function setKeyboardMode(mode) {
+        const old = currentKeyboardMode;
         currentKeyboardMode = mode;
         document.getElementById('disp-mode').innerText = mode;
+
         if (mode === "Natural") {
-            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            CHS_1_5.forEach(ch => sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00]));
+            await sendSysex([0x43, 0x04, 0x07, 0x00, 23, 0x00, 0x00, 0x00, 127]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 23, 0x00, 0x00, 0x00, 127]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 23, 0x00, 0x00, 0x00, 127]);
+            for(let ch of CHS_1_5) {
+                await sendSysex([0x43, 0x04, ch, 0x00, 22, 0x00, 0x00, 0x00, 0x00]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 31, 0x00, 0x00, 0x00, 24]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 29, 0x00, 0x00, 0x00, 108]);
+            }
         } else if (mode === "Baixo") {
-            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
-            CHS_1_5.forEach(ch => sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x7F, 0x7F, 0x74]));
+            if (old === "Solo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
+            await sendSysex([0x43, 0x04, 0x07, 0x00, 23, 0x00, 0x00, 0x00, 0x01]);
+            for(let ch of CHS_1_5) {
+                await sendSysex([0x43, 0x04, ch, 0x00, 22, 0x00, 127, 127, 116]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 31, 0x00, 0x00, 0x00, 65]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 29, 0x00, 0x00, 0x00, 108]);
+            }
         } else if (mode === "Solo") {
-            CHS_1_5.forEach(ch => sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x0C]));
+            if (old === "Baixo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 23, 0x00, 0x00, 0x00, 0x01]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 23, 0x00, 0x00, 0x00, 0x01]);
+            for(let ch of CHS_1_5) {
+                await sendSysex([0x43, 0x04, ch, 0x00, 22, 0x00, 0x00, 0x00, 12]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 31, 0x00, 0x00, 0x00, 24]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 29, 0x00, 0x00, 0x00, 59]);
+            }
         }
-    }
-
-    document.getElementById('btn-reset').onclick = resetGeral;
-
-    // Registrar Service Worker para Offline
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
     }
 </script>
 </body>
