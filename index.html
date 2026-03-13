@@ -8,7 +8,6 @@
     <style>
     :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
     
-    /* Previne rolagem e fixa o tamanho */
     html, body { 
         margin: 0; padding: 0; background: var(--bg); color: var(--text); 
         font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; 
@@ -18,60 +17,66 @@
     .screen { display: none; width: 100%; height: 100%; }
     .active { display: flex; }
     
-    /* Layout Horizontal com desconto de barras do navegador */
+    /* Reduzido para 80% da altura da visão para garantir que nada escape das barras do Chrome */
     #main { 
         display: flex; 
         width: 100vw; 
-        height: 88vh; /* Reduzido para caber entre as barras do Chrome */
-        margin-top: 2vh; /* Pequeno recuo do topo */
+        height: 78vh; 
+        margin-top: 1vh;
+        box-sizing: border-box;
     }
 
-    /* Quadrante Display - Ajustado para não vazar */
+    /* Lado Esquerdo: Display */
     .q-display { 
-        flex: 1.3; 
-        padding: 10px 15px; 
+        flex: 1.2; 
+        padding: 5px 15px; 
         display: flex; 
         flex-direction: column; 
-        justify-content: space-between; 
+        justify-content: center; /* Centraliza verticalmente no espaço livre */
+        gap: 5px;
         border-right: 2px solid #222; 
         box-sizing: border-box;
     }
 
-    /* Quadrante Mixer - Ajustado para ver o início das barras */
+    /* Lado Direito: Mixer */
     .q-mixer { 
-        flex: 0.7; 
-        padding: 10px; 
+        flex: 0.8; 
+        padding: 5px 10px; 
         display: flex; 
         flex-direction: column; 
-        justify-content: flex-end; /* Garante que as labels CC fiquem visíveis */
+        justify-content: center;
         background: var(--panel); 
         box-sizing: border-box;
     }
 
-    /* Ajuste de fontes para caber na altura reduzida */
-    .info-label { font-size: 9px; color: #666; text-transform: uppercase; }
-    .val-trans { font-size: 45px; font-weight: 900; color: var(--accent); line-height: 1; margin: 2px 0; }
-    .val-time { font-size: 32px; font-weight: 700; color: #fff; margin: 0; }
-    .val-mode { font-size: 28px; font-weight: 700; color: #ccc; }
+    /* Fontes calibradas para o A11 em Paisagem */
+    .info-label { font-size: 8px; color: #666; text-transform: uppercase; margin: 0; }
+    .val-trans { font-size: 38px; font-weight: 900; color: var(--accent); line-height: 1; margin: 0; }
+    .val-time { font-size: 28px; font-weight: 700; color: #fff; margin: 0; }
+    .val-mode { font-size: 24px; font-weight: 700; color: #ccc; margin: 0; }
     
-    /* Barra de Status compacta */
+    /* Status Bar mais alta para fugir da borda */
     .status-bar { 
-        padding: 6px; 
+        padding: 5px; 
         border-radius: 6px; 
         text-align: center; 
-        font-size: 14px; 
+        font-size: 13px; 
         font-weight: 900; 
-        margin-top: 5px; 
+        margin-top: 8px; 
+        max-width: 180px; /* Evita que a barra fique larga demais */
     }
-    .status-on { background: rgba(50, 215, 75, 0.15); color: var(--success); border: 1px solid var(--success); }
-    .status-off { background: rgba(255, 69, 58, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+    .status-on { background: rgba(50, 215, 75, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .status-off { background: rgba(255, 69, 58, 0.2); color: var(--danger); border: 1px solid var(--danger); }
 
-    /* Mixer encurtado para caber na tela */
-    .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 65%; gap: 8px; }
-    .bar-container { width: 20%; height: 100%; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
+    /* Mixer compacto */
+    .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 60%; gap: 6px; }
+    .bar-container { width: 20%; height: 100%; background: #000; border-radius: 3px; position: relative; overflow: hidden; border: 1px solid #333; }
     .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); }
-    .cc-label { font-size: 11px; text-align: center; color: #888; margin-top: 5px; font-weight: bold; }
+    
+    /* Labels subindo para dentro da área visível */
+    .cc-label { font-size: 10px; text-align: center; color: #888; margin-top: 4px; font-weight: bold; }
 </style>
+
 </head>
 <body>
 
