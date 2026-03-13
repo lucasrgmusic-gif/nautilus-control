@@ -6,37 +6,72 @@
     <title>Nautilus Pro Horizontal</title>
     <link rel="manifest" href="manifest.json">
     <style>
-        :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; height: 100vh; width: 100vw; display: flex; }
-        .screen { display: none; width: 100%; height: 100%; }
-        .active { display: flex; }
-        
-        /* TELA 1: SETUP */
-        #setup { flex-direction: column; justify-content: center; align-items: center; gap: 10px; }
-        select, button { width: 50%; padding: 15px; border-radius: 10px; border: 1px solid #333; background: #1c1c1e; color: white; font-size: 16px; }
+    :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
+    
+    /* Previne rolagem e fixa o tamanho */
+    html, body { 
+        margin: 0; padding: 0; background: var(--bg); color: var(--text); 
+        font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; 
+        height: 100%; width: 100%; position: fixed;
+    }
 
-        /* TELA 2: MAIN */
-        #main { display: flex; width: 100vw; height: 100vh; }
-        .q-display { flex: 1.3; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 2px solid #222; }
-        .q-mixer { flex: 0.7; padding: 20px; display: flex; flex-direction: column; justify-content: center; background: var(--panel); }
+    .screen { display: none; width: 100%; height: 100%; }
+    .active { display: flex; }
+    
+    /* Layout Horizontal com desconto de barras do navegador */
+    #main { 
+        display: flex; 
+        width: 100vw; 
+        height: 88vh; /* Reduzido para caber entre as barras do Chrome */
+        margin-top: 2vh; /* Pequeno recuo do topo */
+    }
 
-        /* Fontes Display */
-        .info-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 2px; }
-        .val-trans { font-size: 65px; font-weight: 900; color: var(--accent); line-height: 1; margin: 5px 0; }
-        .val-time { font-size: 45px; font-weight: 700; color: #fff; margin-bottom: 5px; }
-        .val-mode { font-size: 38px; font-weight: 700; color: #ccc; }
-        
-        /* Status Bar */
-        .status-bar { padding: 10px; border-radius: 8px; text-align: center; font-size: 18px; font-weight: 900; margin-top: 10px; transition: 0.3s; }
-        .status-on { background: rgba(50, 215, 75, 0.2); color: var(--success); border: 1px solid var(--success); }
-        .status-off { background: rgba(255, 69, 58, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+    /* Quadrante Display - Ajustado para não vazar */
+    .q-display { 
+        flex: 1.3; 
+        padding: 10px 15px; 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: space-between; 
+        border-right: 2px solid #222; 
+        box-sizing: border-box;
+    }
 
-        /* Mixer */
-        .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 80%; gap: 10px; }
-        .bar-container { width: 22%; height: 100%; background: #000; border-radius: 5px; position: relative; overflow: hidden; border: 1px solid #333; }
-        .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); }
-        .cc-label { font-size: 14px; text-align: center; color: #888; margin-top: 12px; font-weight: bold; }
-    </style>
+    /* Quadrante Mixer - Ajustado para ver o início das barras */
+    .q-mixer { 
+        flex: 0.7; 
+        padding: 10px; 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: flex-end; /* Garante que as labels CC fiquem visíveis */
+        background: var(--panel); 
+        box-sizing: border-box;
+    }
+
+    /* Ajuste de fontes para caber na altura reduzida */
+    .info-label { font-size: 9px; color: #666; text-transform: uppercase; }
+    .val-trans { font-size: 45px; font-weight: 900; color: var(--accent); line-height: 1; margin: 2px 0; }
+    .val-time { font-size: 32px; font-weight: 700; color: #fff; margin: 0; }
+    .val-mode { font-size: 28px; font-weight: 700; color: #ccc; }
+    
+    /* Barra de Status compacta */
+    .status-bar { 
+        padding: 6px; 
+        border-radius: 6px; 
+        text-align: center; 
+        font-size: 14px; 
+        font-weight: 900; 
+        margin-top: 5px; 
+    }
+    .status-on { background: rgba(50, 215, 75, 0.15); color: var(--success); border: 1px solid var(--success); }
+    .status-off { background: rgba(255, 69, 58, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+
+    /* Mixer encurtado para caber na tela */
+    .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 65%; gap: 8px; }
+    .bar-container { width: 20%; height: 100%; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
+    .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); }
+    .cc-label { font-size: 11px; text-align: center; color: #888; margin-top: 5px; font-weight: bold; }
+</style>
 </head>
 <body>
 
