@@ -89,6 +89,7 @@
     </div>
 
     <div id="main" class="screen">
+        <div style="position:fixed; bottom:2px; left:5px; font-size:8px; color:#444; z-index:100;">v1.2.0</div>
         <div class="q-display">
             <div>
                 <div class="info-label">Transição</div>
@@ -169,6 +170,7 @@
         document.getElementById('disp-time').innerText = "0.0s";
         document.getElementById('disp-trans').innerText = "Início";
         currentTransition = "Início";
+        currentTransIndex = 0;
 
         await sendSysex([0x43, 0x0F, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x01]);
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]);
