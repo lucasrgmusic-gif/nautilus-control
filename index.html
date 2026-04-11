@@ -303,7 +303,7 @@ const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {
         
         if (code === 0) { next = "Início"; targets = {101:127, 102:0, 103:0, 104:0}; }
         else if (code === 1) { next = "ParteA"; targets = {101:120, 102:100, 103:0, 104:0}; }
-        else if (code === 2) { next = "ParteB"; targets = {101:110, 102:110, 103:80, 104:50}; }
+        else if (code === 2) { next = "ParteB"; targets = {101:110, 102:110, 103:90, 104:70}; }
         else if (code === 3) { next = "Final"; targets = {101:100, 102:100, 103:120, 104:127}; }
         
         currentTransIndex = code;
