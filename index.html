@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nautilus 1.2.2</title>
+    <title>Nautilus 1.3</title>
     <link rel="manifest" href="manifest.json">
     <style>
     :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
@@ -125,6 +125,7 @@
     let currentTransIndex = 0; // 0: Início, 1: ParteA, 2: ParteB, 3: Final
     let upLock = false;   // Trava para o Modulation (CC1)
     let downLock = false; // Trava para o Breath (CC2)
+    let lastJoystickTime = 0;
 
     const transSequence = [0, 1, 2, 3]; // Códigos que sua handleTransitionTrigger já usa
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
@@ -202,22 +203,37 @@
 
         // 2. Alavanca Joystick (CC1 e CC2)
         if (status === 0xB0) {
-            const cc = d[1];
-            const val = d[2];
+        const cc = d[1];
+        const val = d[2];
+        const now = Date.now();
 
-            if (cc === 1) { // Modulation Y+
-                if (val >= 40 && !upLock) {
-                    if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
-                    upLock = true;
-                } else if (val < 15) { upLock = false; }
-            }
-            if (cc === 2) { // Breath Y-
-                if (val >= 40 && !downLock) {
-                    if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
-                    downLock = true;
-                } else if (val < 15) { downLock = false; }
+        // MODULATION (Y+) -> SOBE
+        if (cc === 1) {
+            if (val >= 40 && !upLock && (now - lastJoystickTime > 300)) {
+                if (currentTransIndex < 3) {
+                    handleTransitionTrigger(currentTransIndex + 1);
+                    lastJoystickTime = now;
+                }
+                upLock = true;
+            } else if (val < 15) {
+                upLock = false;
             }
         }
+
+        // BREATH (Y-) -> DESCE
+        if (cc === 2) {
+            // Só processa se não estivermos no meio de um movimento de subida (evita ricochete)
+            if (val >= 40 && !downLock && (now - lastJoystickTime > 300)) {
+                if (currentTransIndex > 0) {
+                    handleTransitionTrigger(currentTransIndex - 1);
+                    lastJoystickTime = now;
+                }
+                downLock = true;
+            } else if (val < 15) {
+                downLock = false;
+            }
+        }
+    }
 
         // 3. Gatilho via Sysex do Nautilus (Sincronia)
         if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) {
