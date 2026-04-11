@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nautilus Pro Horizontal</title>
+    <title>Nautilus 1.2.2</title>
     <link rel="manifest" href="manifest.json">
     <style>
     :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
@@ -89,7 +89,6 @@
     </div>
 
     <div id="main" class="screen">
-        <div style="position:fixed; bottom:2px; left:5px; font-size:8px; color:#444; z-index:100;">v1.2.1</div>
         <div class="q-display">
             <div>
                 <div class="info-label">Transição</div>
@@ -185,69 +184,57 @@
         applyCurveAndSend(104, 0);
     }
 
-      function handleMidi(e) {
+     async function handleMidi(e) {
         const d = Array.from(e.data);
         const status = d[0] & 0xF0;
         const channel = d[0] & 0x0F;
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
-        // Lógica de Program Change (PC)
+        // 1. Program Change (Ativação/Desativação)
         if (status === 0xC0) {
-            if (channel === 4) { // Canal 5 (PC no track 5)
-                keyboardModeOnly = false;
-                setStatus(true).then(() => resetGeral());
-            } 
-            else if (channel === 3) { // Canal 4 (PC no track 4)
-                keyboardModeOnly = true;
-                setStatus(true).then(() => resetGeral());
-            } 
-            else if (channel === 0) { // Canal 1 (Geralmente a troca global da Combi)
-                // Se o canal 1 mudar e não for detectado PC nos canais 4 ou 5, desativa
-                setStatus(false);
-            }
+            if (channel === 4) { keyboardModeOnly = false; await setStatus(true); await resetGeral(); }
+            else if (channel === 3) { keyboardModeOnly = true; await setStatus(true); await resetGeral(); }
+            else { await setStatus(false); }
             return;
         }
-          
-        // Se o controle estiver inativo, não processa nada abaixo
+
         if (!isMidiActive) return;
 
-        // LÓGICA DA ALAVANCA (JOYSTICK)
-        if (cc === 1) { // Modulation UP
-        if (val >= 40 && !upLock) {
-        if (currentTransIndex < 3) {
-            handleTransitionTrigger(currentTransIndex + 1); // A função incrementa e envia o Sysex
-        }
-        upLock = true;
-        } else if (val < 15) { upLock = false; }
+        // 2. Alavanca Joystick (CC1 e CC2)
+        if (status === 0xB0) {
+            const cc = d[1];
+            const val = d[2];
+
+            if (cc === 1) { // Modulation Y+
+                if (val >= 40 && !upLock) {
+                    if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
+                    upLock = true;
+                } else if (val < 15) { upLock = false; }
+            }
+            if (cc === 2) { // Breath Y-
+                if (val >= 40 && !downLock) {
+                    if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
+                    downLock = true;
+                } else if (val < 15) { downLock = false; }
+            }
         }
 
-        if (cc === 2) { // Breath DOWN
-        if (val >= 40 && !downLock) {
-        if (currentTransIndex > 0) {
-            handleTransitionTrigger(currentTransIndex - 1); // A função decrementa e envia o Sysex
-        }
-        downLock = true;
-        } else if (val < 15) { downLock = false; }
-        }
-
-        // Gatilhos de Transição (Apenas se NÃO for apenas teclado)
+        // 3. Gatilho via Sysex do Nautilus (Sincronia)
         if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) {
-            handleTransitionTrigger(d[d.length - 2]);
+            const code = d[d.length - 2];
+            if(code !== currentTransIndex) {
+                currentTransIndex = code;
+                handleTransitionTrigger(code, true); // true para não ecoar sysex de volta
+            }
         }
         
-        // Modos de Teclado (Sempre ativo se o controle estiver ON)
+        // 4. Modos de Teclado
         if (hex.includes("5D 43 1B 00 00 06")) {
             const val = d[14]; 
             const val11 = d[11];
             if (val11 === 1 && val === 1) setKeyboardMode("Baixo");
             else if (val11 === 0 && val === 1) setKeyboardMode("Solo");
             else setKeyboardMode("Natural");
-        }
-
-        // Filtro para ignorar Reset Geral via Sysex se preferir focar apenas no PC
-        if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { 
-            // Mantém o reset mas respeita a trava do canal
-            resetGeral(); 
         }
     }
 
@@ -273,21 +260,25 @@
         }
     }
 
-    async function handleTransitionTrigger(code) {
-        // Envia o Sysex para o Nautilus mudar a cena/arpejo internamente
-        // F0 42 30 00 01 5D 6D 05 00 00 01 00 00 00 [CODE] F7
-        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
+    async function handleTransitionTrigger(code, skipSysex = false) {
+        // Envia o comando para o Nautilus (apenas se não veio dele mesmo)
+        if (!skipSysex) {
+            await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
+        }
 
         const old = currentTransition;
         let targets = {}, next = "";
         
-        // Define os alvos baseados no código recebido
         if (code === 0) { next = "Início"; targets = {101:127, 102:0, 103:0, 104:0}; }
         else if (code === 1) { next = "ParteA"; targets = {101:115, 102:115, 103:0, 104:0}; }
         else if (code === 2) { next = "ParteB"; targets = {101:105, 102:105, 103:80, 104:50}; }
         else if (code === 3) { next = "Final"; targets = {101:80, 102:80, 103:127, 104:127}; }
         
-        // Lógica de Mute/Unmute (sua lógica original de isLow)
+        currentTransIndex = code;
+        currentTransition = next;
+        document.getElementById('disp-trans').innerText = next;
+
+        // Lógica de Mute/Unmute
         const isLow = (t) => t === "Início" || t === "ParteA";
         if (isLow(old) && !isLow(next)) {
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
@@ -297,9 +288,6 @@
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
         }
 
-        currentTransition = next;
-        currentTransIndex = code; // Mantém o índice sincronizado para o joystick
-        document.getElementById('disp-trans').innerText = next;
         runTransition(targets);
     }
 
