@@ -121,6 +121,7 @@
     let currentTransition = "Início", currentKeyboardMode = "Natural";
     let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 };
     let transInterval = null;
+    let keyboardModeOnly = false;
 
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
@@ -178,18 +179,41 @@
         applyCurveAndSend(104, 0);
     }
 
-    function handleMidi(e) {
+      function handleMidi(e) {
         const d = Array.from(e.data);
+        const status = d[0] & 0xF0;
+        const channel = d[0] & 0x0F;
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
-        if ((d[0] & 0xF0) === 0xC0) { setStatus(false); return; }
-        if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { setStatus(true); resetGeral(); }
-        if (hex.includes("5D 6D 05 00 00 03 00 00 00 00")) setStatus(false);
+        // Lógica de Program Change (PC)
+        if (status === 0xC0) {
+            if (channel === 4) { // Canal 5 (0-indexed: 4)
+                keyboardModeOnly = false;
+                setStatus(true);
+                resetGeral();
+            } 
+            else if (channel === 3) { // Canal 4 (0-indexed: 3)
+                keyboardModeOnly = true;
+                setStatus(true);
+                resetGeral();
+            } 
+            else {
+                // Se receber PC em outros canais (como o canal global ao trocar Combi),
+                // desativa se não for um dos canais monitorados.
+                setStatus(false);
+            }
+            return;
+        }
 
+        // Se o controle estiver inativo, não processa nada abaixo
         if (!isMidiActive) return;
 
-        if (hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2]);
+        // Gatilhos de Transição (Apenas se NÃO for apenas teclado)
+        if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) {
+            handleTransitionTrigger(d[d.length - 2]);
+        }
         
+        // Modos de Teclado (Sempre ativo se o controle estiver ON)
         if (hex.includes("5D 43 1B 00 00 06")) {
             const val = d[14]; 
             const val11 = d[11];
@@ -197,13 +221,23 @@
             else if (val11 === 0 && val === 1) setKeyboardMode("Solo");
             else setKeyboardMode("Natural");
         }
+
+        // Filtro para ignorar Reset Geral via Sysex se preferir focar apenas no PC
+        if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { 
+            // Mantém o reset mas respeita a trava do canal
+            resetGeral(); 
+        }
     }
 
     function setStatus(active) {
         isMidiActive = active;
         const el = document.getElementById('txt-active');
-        el.innerText = active ? "CONTROLE ATIVO" : "CONTROLE INATIVO";
+        const modeText = keyboardModeOnly ? " (SÓ TECLADO)" : " (COMPLETO)";
+        el.innerText = active ? "CONTROLE ATIVO" + modeText : "CONTROLE INATIVO";
         el.className = `status-bar ${active ? 'status-on' : 'status-off'}`;
+        
+        // Feedback visual no Mixer quando desativado por Canal 4
+        document.querySelector('.q-mixer').style.opacity = (active && !keyboardModeOnly) ? "1" : "0.3";
     }
 
     function handleTransitionTrigger(code) {
