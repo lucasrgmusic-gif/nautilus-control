@@ -1,8 +1,5 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<audio id="silent-audio" loop>
-    <source src="https://google.com" type="audio/ogg">
-</audio>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -84,7 +81,7 @@
 <body>
 
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus Pro 1.3.1</h2>
+        <h2 style="color: var(--accent)">Nautilus Pro 1.4</h2>
         <button id="btn-init">HABILITAR MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -134,12 +131,21 @@
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
 
-    document.getElementById('btn-ok').onclick = async () => {
-    // ... seu código de conexão ...
-    const audio = document.getElementById('silent-audio');
-    audio.volume = 0.01; // Quase mudo
-    audio.play(); // O Android mantém o app vivo enquanto o áudio "toca"
-    };
+    // Worker para manter o timer vivo em segundo plano
+    const timerWorkerCode = `
+    let timer = null;
+    self.onmessage = function(e) {
+        if (e.data.action === 'start') {
+            if (timer) clearInterval(timer);
+            timer = setInterval(() => self.postMessage('tick'), e.data.interval);
+        } else if (e.data.action === 'stop') {
+            clearInterval(timer);
+            timer = null;
+        }
+        };
+    `;
+const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {type: 'text/javascript'})));
+
 
     document.getElementById('btn-init').onclick = async () => {
         midiAccess = await navigator.requestMIDIAccess({ sysex: true });
@@ -318,19 +324,40 @@
     }
 
     function runTransition(targets) {
-        if (transInterval) clearInterval(transInterval);
-        let step = 0; const steps = 40; 
-        const startValues = { ...ccLevels };
-        transInterval = setInterval(() => {
+    if (transInterval) {
+        timerWorker.postMessage({ action: 'stop' });
+        transInterval = null;
+    }
+
+    let step = 0;
+    const steps = 40;
+    const intervalTime = 100; // Ajuste conforme seu teste (ex: 100ms)
+    const startValues = { ...ccLevels };
+
+    // Handler para os ticks do Worker
+    timerWorker.onmessage = function(e) {
+        if (e.data === 'tick') {
             step++;
             const ratio = step / steps;
+            
             Object.keys(targets).forEach(cc => {
                 applyCurveAndSend(parseInt(cc), startValues[cc] + (targets[cc] - startValues[cc]) * ratio);
             });
+
             document.getElementById('disp-time').innerText = `${((steps - step) * 0.1).toFixed(1)}s`;
-            if (step >= steps) { clearInterval(transInterval); transInterval = null; }
-        }, 100);
-    }
+
+            if (step >= steps) {
+                timerWorker.postMessage({ action: 'stop' });
+                transInterval = null;
+            }
+        }
+    };
+
+    // Inicia o Worker
+    transInterval = true; 
+    timerWorker.postMessage({ action: 'start', interval: intervalTime });
+}
+
 
     async function setKeyboardMode(mode) {
     const old = currentKeyboardMode;
