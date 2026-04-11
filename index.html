@@ -122,7 +122,11 @@
     let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 };
     let transInterval = null;
     let keyboardModeOnly = false;
+    let currentTransIndex = 0; // 0: Início, 1: ParteA, 2: ParteB, 3: Final
+    let upLock = false;   // Trava para o Modulation (CC1)
+    let downLock = false; // Trava para o Breath (CC2)
 
+    const transSequence = [0, 1, 2, 3]; // Códigos que sua handleTransitionTrigger já usa
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
 
@@ -201,9 +205,41 @@
             }
             return;
         }
-
+          
         // Se o controle estiver inativo, não processa nada abaixo
         if (!isMidiActive) return;
+
+        // LÓGICA DA ALAVANCA (JOYSTICK)
+        if (status === 0xB0) {
+            const cc = d[1];
+            const val = d[2];
+
+            // MODULATION (Y+) -> SOBE TRANSIÇÃO
+            if (cc === 1) {
+                if (val >= 40 && !upLock) {
+                    if (currentTransIndex < 3) {
+                        currentTransIndex++;
+                        handleTransitionTrigger(transSequence[currentTransIndex]);
+                    }
+                    upLock = true; // Trava
+                } else if (val < 15) {
+                    upLock = false; // Libera
+                }
+            }
+
+            // BREATH (Y-) -> DESCE TRANSIÇÃO
+            if (cc === 2) {
+                if (val >= 40 && !downLock) {
+                    if (currentTransIndex > 0) {
+                        currentTransIndex--;
+                        handleTransitionTrigger(transSequence[currentTransIndex]);
+                    }
+                    downLock = true; // Trava
+                } else if (val < 15) {
+                    downLock = false; // Libera
+                }
+            }
+        }
 
         // Gatilhos de Transição (Apenas se NÃO for apenas teclado)
         if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) {
