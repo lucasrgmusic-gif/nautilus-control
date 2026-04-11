@@ -81,7 +81,7 @@
 <body>
 
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus Pro 1.4</h2>
+        <h2 style="color: var(--accent)">Nautilus Pro 1.4.1</h2>
         <button id="btn-init">HABILITAR MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -275,7 +275,7 @@ const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {
         
         // Atualiza a UI
         const el = document.getElementById('txt-active');
-        const modeText = keyboardModeOnly ? " (SÓ TECLADO)" : " (COMPLETO)";
+        const modeText = keyboardModeOnly ? " (TECLADO)" : " (COMPLETO)";
         el.innerText = active ? "CONTROLE ATIVO" + modeText : "CONTROLE INATIVO";
         el.className = `status-bar ${active ? 'status-on' : 'status-off'}`;
         
@@ -302,9 +302,9 @@ const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {
         let targets = {}, next = "";
         
         if (code === 0) { next = "Início"; targets = {101:127, 102:0, 103:0, 104:0}; }
-        else if (code === 1) { next = "ParteA"; targets = {101:115, 102:115, 103:0, 104:0}; }
-        else if (code === 2) { next = "ParteB"; targets = {101:105, 102:105, 103:80, 104:50}; }
-        else if (code === 3) { next = "Final"; targets = {101:80, 102:80, 103:127, 104:127}; }
+        else if (code === 1) { next = "ParteA"; targets = {101:120, 102:100, 103:0, 104:0}; }
+        else if (code === 2) { next = "ParteB"; targets = {101:110, 102:110, 103:80, 104:50}; }
+        else if (code === 3) { next = "Final"; targets = {101:100, 102:100, 103:120, 104:127}; }
         
         currentTransIndex = code;
         currentTransition = next;
