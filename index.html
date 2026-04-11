@@ -187,19 +187,16 @@
 
         // Lógica de Program Change (PC)
         if (status === 0xC0) {
-            if (channel === 4) { // Canal 5 (0-indexed: 4)
+            if (channel === 4) { // Canal 5 (PC no track 5)
                 keyboardModeOnly = false;
-                setStatus(true);
-                resetGeral();
+                setStatus(true).then(() => resetGeral());
             } 
-            else if (channel === 3) { // Canal 4 (0-indexed: 3)
+            else if (channel === 3) { // Canal 4 (PC no track 4)
                 keyboardModeOnly = true;
-                setStatus(true);
-                resetGeral();
+                setStatus(true).then(() => resetGeral());
             } 
-            else {
-                // Se receber PC em outros canais (como o canal global ao trocar Combi),
-                // desativa se não for um dos canais monitorados.
+            else if (channel === 0) { // Canal 1 (Geralmente a troca global da Combi)
+                // Se o canal 1 mudar e não for detectado PC nos canais 4 ou 5, desativa
                 setStatus(false);
             }
             return;
@@ -229,15 +226,26 @@
         }
     }
 
-    function setStatus(active) {
+   async function setStatus(active) {
         isMidiActive = active;
+        
+        // Atualiza a UI
         const el = document.getElementById('txt-active');
         const modeText = keyboardModeOnly ? " (SÓ TECLADO)" : " (COMPLETO)";
         el.innerText = active ? "CONTROLE ATIVO" + modeText : "CONTROLE INATIVO";
         el.className = `status-bar ${active ? 'status-on' : 'status-off'}`;
         
-        // Feedback visual no Mixer quando desativado por Canal 4
+        // Feedback visual do Mixer
         document.querySelector('.q-mixer').style.opacity = (active && !keyboardModeOnly) ? "1" : "0.3";
+
+        // ENVIO DOS SYSEX DE ESTADO (Comando 0x6D 0x05... 01 ou 00)
+        if (active) {
+            // Envia Ativado: F0 42 30 00 01 5D 6D 05 00 00 03 00 00 00 01 F7
+            await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]);
+        } else {
+            // Envia Desativado: F0 42 30 00 01 5D 6D 05 00 00 03 00 00 00 00 F7
+            await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00]);
+        }
     }
 
     function handleTransitionTrigger(code) {
