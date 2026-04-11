@@ -89,7 +89,7 @@
     </div>
 
     <div id="main" class="screen">
-        <div style="position:fixed; bottom:2px; left:5px; font-size:8px; color:#444; z-index:100;">v1.2.0</div>
+        <div style="position:fixed; bottom:2px; left:5px; font-size:8px; color:#444; z-index:100;">v1.2.1</div>
         <div class="q-display">
             <div>
                 <div class="info-label">Transição</div>
@@ -212,35 +212,22 @@
         if (!isMidiActive) return;
 
         // LÓGICA DA ALAVANCA (JOYSTICK)
-        if (status === 0xB0) {
-            const cc = d[1];
-            const val = d[2];
+        if (cc === 1) { // Modulation UP
+        if (val >= 40 && !upLock) {
+        if (currentTransIndex < 3) {
+            handleTransitionTrigger(currentTransIndex + 1); // A função incrementa e envia o Sysex
+        }
+        upLock = true;
+        } else if (val < 15) { upLock = false; }
+        }
 
-            // MODULATION (Y+) -> SOBE TRANSIÇÃO
-            if (cc === 1) {
-                if (val >= 40 && !upLock) {
-                    if (currentTransIndex < 3) {
-                        currentTransIndex++;
-                        handleTransitionTrigger(transSequence[currentTransIndex]);
-                    }
-                    upLock = true; // Trava
-                } else if (val < 15) {
-                    upLock = false; // Libera
-                }
-            }
-
-            // BREATH (Y-) -> DESCE TRANSIÇÃO
-            if (cc === 2) {
-                if (val >= 40 && !downLock) {
-                    if (currentTransIndex > 0) {
-                        currentTransIndex--;
-                        handleTransitionTrigger(transSequence[currentTransIndex]);
-                    }
-                    downLock = true; // Trava
-                } else if (val < 15) {
-                    downLock = false; // Libera
-                }
-            }
+        if (cc === 2) { // Breath DOWN
+        if (val >= 40 && !downLock) {
+        if (currentTransIndex > 0) {
+            handleTransitionTrigger(currentTransIndex - 1); // A função decrementa e envia o Sysex
+        }
+        downLock = true;
+        } else if (val < 15) { downLock = false; }
         }
 
         // Gatilhos de Transição (Apenas se NÃO for apenas teclado)
@@ -286,23 +273,32 @@
         }
     }
 
-    function handleTransitionTrigger(code) {
+    async function handleTransitionTrigger(code) {
+        // Envia o Sysex para o Nautilus mudar a cena/arpejo internamente
+        // F0 42 30 00 01 5D 6D 05 00 00 01 00 00 00 [CODE] F7
+        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
+
         const old = currentTransition;
         let targets = {}, next = "";
+        
+        // Define os alvos baseados no código recebido
         if (code === 0) { next = "Início"; targets = {101:127, 102:0, 103:0, 104:0}; }
         else if (code === 1) { next = "ParteA"; targets = {101:115, 102:115, 103:0, 104:0}; }
         else if (code === 2) { next = "ParteB"; targets = {101:105, 102:105, 103:80, 104:50}; }
         else if (code === 3) { next = "Final"; targets = {101:80, 102:80, 103:127, 104:127}; }
         
+        // Lógica de Mute/Unmute (sua lógica original de isLow)
         const isLow = (t) => t === "Início" || t === "ParteA";
         if (isLow(old) && !isLow(next)) {
-            sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
-            sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
         } else if (!isLow(old) && isLow(next)) {
-            sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
-            sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
         }
+
         currentTransition = next;
+        currentTransIndex = code; // Mantém o índice sincronizado para o joystick
         document.getElementById('disp-trans').innerText = next;
         runTransition(targets);
     }
