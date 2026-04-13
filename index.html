@@ -126,6 +126,8 @@
     let upLock = false;   // Trava para o Modulation (CC1)
     let downLock = false; // Trava para o Breath (CC2)
     let lastJoystickTime = 0;
+    let currentTransIndex = 0; // 0 a 3
+    let currentKeyboardMode = "Natural"; // Natural, Baixo, Solo
 
     const transSequence = [0, 1, 2, 3]; // Códigos que sua handleTransitionTrigger já usa
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
@@ -209,11 +211,33 @@ const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {
 
         // 1. Program Change (Ativação/Desativação)
         if (status === 0xC0) {
-            if (channel === 4) { keyboardModeOnly = false; await setStatus(true); await resetGeral(); }
-            else if (channel === 3) { keyboardModeOnly = true; await setStatus(true); await resetGeral(); }
-            else { await setStatus(false); }
-            return;
-        }
+    if (channel === 4) { // CANAL 5 - CONTROLE COMPLETO
+        keyboardModeOnly = false;
+        await setStatus(true);
+        
+        // Aplica Continuidade Total
+        await setKeyboardMode(currentKeyboardMode); 
+        await handleTransitionTrigger(currentTransIndex, false); 
+    } 
+    else if (channel === 3) { // CANAL 4 - APENAS TECLADO
+        keyboardModeOnly = true;
+        await setStatus(true);
+        
+        // Aplica apenas Continuidade de Teclado
+        await setKeyboardMode(currentKeyboardMode);
+        
+        // Reseta índice visual da transição para 0 (sem enviar CCs ou Sysex de cena)
+        currentTransIndex = 0;
+        document.getElementById('disp-trans').innerText = "Início";
+    } 
+    else { // CONTROLE INATIVO
+        await setStatus(false);
+        // Reseta memória visual para o próximo timbre
+        currentTransIndex = 0;
+        currentKeyboardMode = "Natural";
+    }
+    return;
+}
 
         if (!isMidiActive) return;
 
@@ -294,6 +318,10 @@ const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {
 
     async function handleTransitionTrigger(code, skipSysex = false) {
         // Envia o comando para o Nautilus (apenas se não veio dele mesmo)
+        if (keyboardModeOnly && !skipSysex) {
+        currentTransIndex = code;
+        return; 
+        }
         if (!skipSysex) {
             await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
         }
