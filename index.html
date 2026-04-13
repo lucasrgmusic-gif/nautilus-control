@@ -47,7 +47,7 @@
 
     <div id="setup" class="screen active">
         // VERSAO AQUI ----------------------------- V -------
-        <h2 style="color: var(--accent)">Nautilus v1.5.5</h2>
+        <h2 style="color: var(--accent)">Nautilus v1.5.6</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -148,45 +148,67 @@
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, active ? 0x01 : 0x00]);
     }
 
+    async function syncHardwareInstant() {
+        let targets = {};
+        const code = currentTransIndex;
+
+        // Define os alvos baseados no índice atual
+        if (code === 0) targets = {101:127, 102:0, 103:0, 104:0};
+        else if (code === 1) targets = {101:115, 102:115, 103:0, 104:0};
+        else if (code === 2) targets = {101:105, 102:105, 103:80, 104:50};
+        else if (code === 3) targets = {101:80, 102:80, 103:127, 104:127};
+
+        Object.keys(targets).forEach(cc => {
+            let val = targets[cc];
+            // Aplica a mesma curva logarítmica para manter a coerência do volume
+            let logVal = Math.round(127 * Math.pow(val / 127, 1.5));
+            
+            // Envia para o MIDI de forma imediata
+            output.send([0xB0, parseInt(cc), logVal]);
+            
+            // Atualiza a memória global e a interface
+            ccLevels[cc] = val;
+            document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
+            document.getElementById(`val-${cc}`).innerText = logVal;
+        });
+        
+        // Garante que o nome da transição no display esteja correto
+        const names = ["Início", "ParteA", "ParteB", "Final"];
+        document.getElementById('disp-trans').innerText = names[code];
+    }
+
     async function handleMidi(e) {
         const d = Array.from(e.data);
         const status = d[0] & 0xF0, channel = d[0] & 0x0F, now = Date.now();
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
          // --- CONTINUIDADE / PROGRAM CHANGE (0xC0) ---
-        if (status === 0xC0) {
-            // Aumentamos o delay para 250ms para garantir que o Nautilus carregou o novo timbre
-            await new Promise(r => setTimeout(r, 350));
+      if (status === 0xC0) {
+            await new Promise(r => setTimeout(r, 300));
             
-            if (channel === 4) { // Canal 5: CONTROLE COMPLETO
+            if (channel === 4) { // CANAL 5: MANTER TUDO
                 keyboardModeOnly = false;
                 await setStatus(true);
                 
-                // MANTÉM os estados atuais e re-envia para o hardware
-                // Sincroniza o modo de teclado que já estava na tela
+                // 1. Sincroniza o modo de teclado atual (Sysex)
                 await setKeyboardMode(currentKeyboardMode); 
-                // Sincroniza a transição que já estava na tela
-                await handleTransitionTrigger(currentTransIndex, false); 
+                
+                // 2. Envia CCs da transição ATUAL de forma instantânea (sem animação)
+                await syncHardwareInstant(); 
             } 
-            else if (channel === 3) { // Canal 4: CONTROLE TECLADO
+            else if (channel === 3) { // CANAL 4: RESETAR TRANSIÇÃO, MANTER MODO
                 keyboardModeOnly = true;
                 await setStatus(true);
-                
-                // Reset apenas da transição para "Início"
                 currentTransIndex = 0; 
                 document.getElementById('disp-trans').innerText = "Início";
                 
-                // Mantém o modo de teclado, mas reseta volume/faders
                 await setKeyboardMode(currentKeyboardMode);
-                await handleTransitionTrigger(0, false);
+                await syncHardwareInstant(); // Reseta para valores do "Início" instantaneamente
             } 
             else { 
-                // Outros canais: Tudo OFF e Reset total
                 await setStatus(false);
                 currentTransIndex = 0;
                 currentKeyboardMode = "Natural";
-                document.getElementById('disp-trans').innerText = "Início";
-                document.getElementById('disp-mode').innerText = "Natural";
             }
             return;
         }
