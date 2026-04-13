@@ -83,7 +83,8 @@
     let currentTransition = "Início", currentKeyboardMode = "Natural", keyboardModeOnly = false;
     let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 }, transInterval = null;
     let upLock = false, downLock = false, lastJoystickTime = 0;
-
+    let currentTransIndex = 0;
+    
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
 
