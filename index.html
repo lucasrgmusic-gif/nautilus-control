@@ -3,342 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nautilus</title>
-    <link rel="manifest" href="manifest.json">
+    <title>Nautilus Pro 1.5</title>
     <style>
-    :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
-    
-    html, body { 
-        margin: 0; padding: 0; background: var(--bg); color: var(--text); 
-        font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; 
-        height: 100%; width: 100%; position: fixed;
-    }
+        :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
+        html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100%; width: 100%; position: fixed; touch-action: none; }
+        .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
+        .active { display: flex; }
+        
+        /* Layout Setup */
+        #setup select, #setup button { width: 80%; max-width: 300px; padding: 15px; margin: 10px; border-radius: 8px; font-size: 16px; background: #222; color: #fff; border: 1px solid #444; }
+        
+        /* Main Interface */
+        #main-container { display: flex; width: 100vw; height: 80vh; margin-top: 5px; }
+        .q-display { flex: 1.2; padding: 10px 20px; border-right: 2px solid #222; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+        .q-mixer { flex: 0.8; padding: 10px; background: var(--panel); display: flex; flex-direction: column; justify-content: center; }
+        
+        /* Typography */
+        .info-label { font-size: 9px; color: #666; text-transform: uppercase; }
+        .val-trans { font-size: 42px; font-weight: 900; color: var(--accent); line-height: 1; }
+        .val-time { font-size: 28px; font-weight: 700; color: #fff; }
+        .val-mode { font-size: 24px; font-weight: 700; color: #ccc; }
+        
+        /* Status Bar */
+        .status-bar { padding: 8px; border-radius: 6px; text-align: center; font-size: 12px; font-weight: 900; margin-top: 10px; width: fit-content; }
+        .status-on { background: rgba(50, 215, 75, 0.2); color: var(--success); border: 1px solid var(--success); }
+        .status-off { background: rgba(255, 69, 58, 0.2); color: var(--danger); border: 1px solid var(--danger); }
 
-    .screen { display: none; width: 100%; height: 100%; }
-    .active { display: flex; }
-    
-    /* Reduzido para 80% da altura da visão para garantir que nada escape das barras do Chrome */
-    #main { 
-        display: flex; 
-        width: 100vw; 
-        height: 78vh; 
-        margin-top: 1vh;
-        box-sizing: border-box;
-    }
-
-    /* Lado Esquerdo: Display */
-    .q-display { 
-        flex: 1.2; 
-        padding: 5px 15px; 
-        display: flex; 
-        flex-direction: column; 
-        justify-content: center; /* Centraliza verticalmente no espaço livre */
-        gap: 5px;
-        border-right: 2px solid #222; 
-        box-sizing: border-box;
-    }
-
-    /* Lado Direito: Mixer */
-    .q-mixer { 
-        flex: 0.8; 
-        padding: 5px 10px; 
-        display: flex; 
-        flex-direction: column; 
-        justify-content: center;
-        background: var(--panel); 
-        box-sizing: border-box;
-    }
-
-    /* Fontes calibradas para o A11 em Paisagem */
-    .info-label { font-size: 8px; color: #666; text-transform: uppercase; margin: 0; }
-    .val-trans { font-size: 38px; font-weight: 900; color: var(--accent); line-height: 1; margin: 0; }
-    .val-time { font-size: 28px; font-weight: 700; color: #fff; margin: 0; }
-    .val-mode { font-size: 24px; font-weight: 700; color: #ccc; margin: 0; }
-    
-    /* Status Bar mais alta para fugir da borda */
-    .status-bar { 
-        padding: 5px; 
-        border-radius: 6px; 
-        text-align: center; 
-        font-size: 13px; 
-        font-weight: 900; 
-        margin-top: 8px; 
-        max-width: 180px; /* Evita que a barra fique larga demais */
-    }
-    .status-on { background: rgba(50, 215, 75, 0.2); color: var(--success); border: 1px solid var(--success); }
-    .status-off { background: rgba(255, 69, 58, 0.2); color: var(--danger); border: 1px solid var(--danger); }
-
-    /* Mixer compacto */
-    .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 60%; gap: 6px; }
-    .bar-container { width: 20%; height: 100%; background: #000; border-radius: 3px; position: relative; overflow: hidden; border: 1px solid #333; }
-    .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); }
-    
-    /* Labels subindo para dentro da área visível */
-    .cc-label { font-size: 10px; text-align: center; color: #888; margin-top: 4px; font-weight: bold; }
-</style>
-
+        /* Mixer Bars */
+        .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 120px; gap: 8px; margin-bottom: 5px; }
+        .bar-container { width: 35px; height: 100%; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
+        .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); transition: height 0.1s linear; }
+        .cc-label { font-size: 10px; color: #888; font-weight: bold; text-align: center; }
+    </style>
 </head>
 <body>
 
+    <audio id="silent-audio" loop><source src="https://google.com"></audio>
+
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus Pro 1.5</h2>
-        <button id="btn-init">HABILITAR MIDI</button>
+        <h2 style="color: var(--accent)">Nautilus Pro v1.6</h2>
+        <button id="btn-init">1. HABILITAR MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
-        <button id="btn-ok" style="background: var(--success); border:none;">CONECTAR</button>
+        <button id="btn-ok" style="background: var(--success); border:none;">2. CONECTAR</button>
     </div>
 
     <div id="main" class="screen">
-        <div class="q-display">
-            <div>
-                <div class="info-label">Transição</div>
-                <div id="disp-trans" class="val-trans">Início</div>
+        <div id="main-container">
+            <div class="q-display">
+                <div>
+                    <div class="info-label">Transição</div>
+                    <div id="disp-trans" class="val-trans">Início</div>
+                </div>
+                <div>
+                    <div class="info-label">Tempo / Modo</div>
+                    <div id="disp-time" class="val-time">0.0s</div>
+                    <div id="disp-mode" class="val-mode">Natural</div>
+                </div>
+                <div id="txt-active" class="status-bar status-off">CONTROLE INATIVO</div>
             </div>
-            <div>
-                <div class="info-label">Tempo / Modo</div>
-                <div id="disp-time" class="val-time">0.0s</div>
-                <div id="disp-mode" class="val-mode">Natural</div>
-            </div>
-            <div id="txt-active" class="status-bar status-on">CONTROLE ATIVO</div>
-        </div>
 
-        <div class="q-mixer">
-            <div class="mixer">
-                <div class="bar-container"><div id="bar101" class="bar-fill"></div></div>
-                <div class="bar-container"><div id="bar102" class="bar-fill"></div></div>
-                <div class="bar-container"><div id="bar103" class="bar-fill"></div></div>
-                <div class="bar-container"><div id="bar104" class="bar-fill"></div></div>
-            </div>
-            <div style="display: flex; justify-content: space-around;">
-                <span class="cc-label">101</span><span class="cc-label">102</span>
-                <span class="cc-label">103</span><span class="cc-label">104</span>
+            <div class="q-mixer">
+                <div class="mixer">
+                    <div class="bar-container"><div id="bar101" class="bar-fill"></div></div>
+                    <div class="bar-container"><div id="bar102" class="bar-fill"></div></div>
+                    <div class="bar-container"><div id="bar103" class="bar-fill"></div></div>
+                    <div class="bar-container"><div id="bar104" class="bar-fill"></div></div>
+                </div>
+                <div style="display: flex; justify-content: space-around;">
+                    <span class="cc-label">101</span><span class="cc-label">102</span>
+                    <span class="cc-label">103</span><span class="cc-label">104</span>
+                </div>
             </div>
         </div>
     </div>
 
 <script>
-    let midiAccess = null, input = null, output = null, isMidiActive = true;
-    let currentTransition = "Início", currentKeyboardMode = "Natural";
-    let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 };
-    let transInterval = null;
-    let keyboardModeOnly = false;
-    let currentTransIndex = 0; // 0: Início, 1: ParteA, 2: ParteB, 3: Final
-    let upLock = false;   // Trava para o Modulation (CC1)
-    let downLock = false; // Trava para o Breath (CC2)
-    let lastJoystickTime = 0;
-    let currentTransIndex = 0; // 0 a 3
-    let currentKeyboardMode = "Natural"; // Natural, Baixo, Solo
+    let midiAccess = null, input = null, output = null, isMidiActive = false;
+    let currentTransition = "Início", currentKeyboardMode = "Natural", keyboardModeOnly = false;
+    let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 }, transInterval = null;
+    let upLock = false, downLock = false, lastJoystickTime = 0;
 
-    const transSequence = [0, 1, 2, 3]; // Códigos que sua handleTransitionTrigger já usa
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
 
-    // Worker para manter o timer vivo em segundo plano
-    const timerWorkerCode = `
-    let timer = null;
-    self.onmessage = function(e) {
-        if (e.data.action === 'start') {
-            if (timer) clearInterval(timer);
-            timer = setInterval(() => self.postMessage('tick'), e.data.interval);
-        } else if (e.data.action === 'stop') {
-            clearInterval(timer);
-            timer = null;
-        }
-        };
-    `;
-const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {type: 'text/javascript'})));
-
+    // Worker para manter timers em segundo plano
+    const timerWorkerCode = `let t = null; self.onmessage = e => { if(e.data.action==='start'){ t=setInterval(()=>self.postMessage('tick'),e.data.interval)} else clearInterval(t); }`;
+    const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {type: 'text/javascript'})));
 
     document.getElementById('btn-init').onclick = async () => {
-        midiAccess = await navigator.requestMIDIAccess({ sysex: true });
-        const i = document.getElementById('midi-in'), o = document.getElementById('midi-out');
-        midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
-        midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
-        if ('wakeLock' in navigator) navigator.wakeLock.request('screen');
+        try {
+            midiAccess = await navigator.requestMIDIAccess({ sysex: true });
+            const i = document.getElementById('midi-in'), o = document.getElementById('midi-out');
+            i.innerHTML = ""; o.innerHTML = "";
+            midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
+            midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
+            if ('wakeLock' in navigator) navigator.wakeLock.request('screen');
+        } catch(e) { alert("Erro ao acessar MIDI: " + e); }
     };
 
-    document.getElementById('btn-ok').onclick = async () => {
+    document.getElementById('btn-ok').onclick = () => {
         input = midiAccess.inputs.get(document.getElementById('midi-in').value);
         output = midiAccess.outputs.get(document.getElementById('midi-out').value);
         if (output) {
             input.onmidimessage = handleMidi;
             document.getElementById('setup').classList.remove('active');
             document.getElementById('main').classList.add('active');
-            await resetGeral(); 
+            document.getElementById('silent-audio').play();
         }
     };
 
     async function sendSysex(data) {
         if (!output) return;
         output.send([...SYSEX_HDR, ...data, 0xF7]);
-        await new Promise(r => setTimeout(r, 12)); 
+        await new Promise(r => setTimeout(r, 12));
     }
 
-    function applyCurveAndSend(cc, linearVal) {
-        if (!output) return;
-        ccLevels[cc] = linearVal; 
-        const logVal = Math.round(127 * Math.pow(linearVal / 127, 1.5));
-        output.send([0xB0, cc, logVal]);
-        document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
+    async function setStatus(active) {
+        isMidiActive = active;
+        const el = document.getElementById('txt-active');
+        const modeTxt = keyboardModeOnly ? " (SÓ TECLADO)" : " (COMPLETO)";
+        el.innerText = active ? "CONTROLE ATIVO" + modeTxt : "CONTROLE INATIVO";
+        el.className = `status-bar ${active ? 'status-on' : 'status-off'}`;
+        document.querySelector('.q-mixer').style.opacity = (active && !keyboardModeOnly) ? "1" : "0.3";
+        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, active ? 0x01 : 0x00]);
     }
 
-    async function resetGeral() {
-        if (transInterval) clearInterval(transInterval);
-        transInterval = null;
-        document.getElementById('disp-time').innerText = "0.0s";
-        document.getElementById('disp-trans').innerText = "Início";
-        currentTransition = "Início";
-        currentTransIndex = 0;
-
-        await sendSysex([0x43, 0x0F, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x01]);
-        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]);
-        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
-        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
-        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
-
-        setKeyboardMode("Natural");
-        applyCurveAndSend(101, 127);
-        applyCurveAndSend(102, 0);
-        applyCurveAndSend(103, 0);
-        applyCurveAndSend(104, 0);
-    }
-
-     async function handleMidi(e) {
+    async function handleMidi(e) {
         const d = Array.from(e.data);
-        const status = d[0] & 0xF0;
-        const channel = d[0] & 0x0F;
+        const status = d[0] & 0xF0, channel = d[0] & 0x0F, now = Date.now();
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
-        // 1. Program Change (Ativação/Desativação)
+        // --- CONTINUIDADE / PROGRAM CHANGE ---
         if (status === 0xC0) {
-    if (channel === 4) { // CANAL 5 - CONTROLE COMPLETO
-        keyboardModeOnly = false;
-        await setStatus(true);
-        
-        // Aplica Continuidade Total
-        await setKeyboardMode(currentKeyboardMode); 
-        await handleTransitionTrigger(currentTransIndex, false); 
-    } 
-    else if (channel === 3) { // CANAL 4 - APENAS TECLADO
-        keyboardModeOnly = true;
-        await setStatus(true);
-        
-        // Aplica apenas Continuidade de Teclado
-        await setKeyboardMode(currentKeyboardMode);
-        
-        // Reseta índice visual da transição para 0 (sem enviar CCs ou Sysex de cena)
-        currentTransIndex = 0;
-        document.getElementById('disp-trans').innerText = "Início";
-    } 
-    else { // CONTROLE INATIVO
-        await setStatus(false);
-        // Reseta memória visual para o próximo timbre
-        currentTransIndex = 0;
-        currentKeyboardMode = "Natural";
-    }
-    return;
-}
+            await new Promise(r => setTimeout(r, 150));
+            if (channel === 4) { // Canal 5
+                keyboardModeOnly = false;
+                await setStatus(true);
+                await setKeyboardMode(currentKeyboardMode);
+                await handleTransitionTrigger(currentTransIndex, false);
+            } else if (channel === 3) { // Canal 4
+                keyboardModeOnly = true;
+                await setStatus(true);
+                await setKeyboardMode(currentKeyboardMode);
+                currentTransIndex = 0; document.getElementById('disp-trans').innerText = "Início";
+            } else { await setStatus(false); currentTransIndex = 0; currentKeyboardMode = "Natural"; }
+            return;
+        }
 
         if (!isMidiActive) return;
 
-        // 2. Alavanca Joystick (CC1 e CC2)
+        // --- JOYSTICK (TRAVA DE TEMPO 300MS) ---
         if (status === 0xB0) {
-        const cc = d[1];
-        const val = d[2];
-        const now = Date.now();
-
-        // MODULATION (Y+) -> SOBE
-        if (cc === 1) {
-            if (val >= 40 && !upLock && (now - lastJoystickTime > 300)) {
-                if (currentTransIndex < 3) {
-                    handleTransitionTrigger(currentTransIndex + 1);
-                    lastJoystickTime = now;
-                }
-                upLock = true;
-            } else if (val < 15) {
-                upLock = false;
+            if (d[1] === 1) { // Modulation Y+
+                if (d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
+                    if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
+                    upLock = true; lastJoystickTime = now;
+                } else if (d[2] < 15) upLock = false;
+            }
+            if (d[1] === 2) { // Breath Y-
+                if (d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
+                    if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
+                    downLock = true; lastJoystickTime = now;
+                } else if (d[2] < 15) downLock = false;
             }
         }
 
-        // BREATH (Y-) -> DESCE
-        if (cc === 2) {
-            // Só processa se não estivermos no meio de um movimento de subida (evita ricochete)
-            if (val >= 40 && !downLock && (now - lastJoystickTime > 300)) {
-                if (currentTransIndex > 0) {
-                    handleTransitionTrigger(currentTransIndex - 1);
-                    lastJoystickTime = now;
-                }
-                downLock = true;
-            } else if (val < 15) {
-                downLock = false;
-            }
-        }
-    }
-
-        // 3. Gatilho via Sysex do Nautilus (Sincronia)
-        if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) {
-            const code = d[d.length - 2];
-            if(code !== currentTransIndex) {
-                currentTransIndex = code;
-                handleTransitionTrigger(code, true); // true para não ecoar sysex de volta
-            }
-        }
-        
-        // 4. Modos de Teclado
+        // Sincronia de Gatilho e Modos via Sysex
+        if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2], true);
         if (hex.includes("5D 43 1B 00 00 06")) {
-            const val = d[14]; 
-            const val11 = d[11];
-            if (val11 === 1 && val === 1) setKeyboardMode("Baixo");
-            else if (val11 === 0 && val === 1) setKeyboardMode("Solo");
+            if (d[11] === 1 && d[14] === 1) setKeyboardMode("Baixo");
+            else if (d[11] === 0 && d[14] === 1) setKeyboardMode("Solo");
             else setKeyboardMode("Natural");
         }
     }
 
-   async function setStatus(active) {
-        isMidiActive = active;
-        
-        // Atualiza a UI
-        const el = document.getElementById('txt-active');
-        const modeText = keyboardModeOnly ? " (TECLADO)" : " (COMPLETO)";
-        el.innerText = active ? "CONTROLE ATIVO" + modeText : "CONTROLE INATIVO";
-        el.className = `status-bar ${active ? 'status-on' : 'status-off'}`;
-        
-        // Feedback visual do Mixer
-        document.querySelector('.q-mixer').style.opacity = (active && !keyboardModeOnly) ? "1" : "0.3";
-
-        // ENVIO DOS SYSEX DE ESTADO (Comando 0x6D 0x05... 01 ou 00)
-        if (active) {
-            // Envia Ativado: F0 42 30 00 01 5D 6D 05 00 00 03 00 00 00 01 F7
-            await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]);
-        } else {
-            // Envia Desativado: F0 42 30 00 01 5D 6D 05 00 00 03 00 00 00 00 F7
-            await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00]);
-        }
-    }
-
     async function handleTransitionTrigger(code, skipSysex = false) {
-        // Envia o comando para o Nautilus (apenas se não veio dele mesmo)
         if (keyboardModeOnly && !skipSysex) {
-        currentTransIndex = code;
-        return; 
+            currentTransIndex = code;
+            document.getElementById('disp-trans').innerText = ["Início","ParteA","ParteB","Final"][code];
+            return;
         }
-        if (!skipSysex) {
-            await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
-        }
-
+        if (!skipSysex) await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
+        
         const old = currentTransition;
         let targets = {}, next = "";
-        
         if (code === 0) { next = "Início"; targets = {101:127, 102:0, 103:0, 104:0}; }
-        else if (code === 1) { next = "ParteA"; targets = {101:120, 102:100, 103:0, 104:0}; }
-        else if (code === 2) { next = "ParteB"; targets = {101:110, 102:110, 103:90, 104:70}; }
-        else if (code === 3) { next = "Final"; targets = {101:100, 102:100, 103:120, 104:127}; }
-        
-        currentTransIndex = code;
-        currentTransition = next;
-        document.getElementById('disp-trans').innerText = next;
+        else if (code === 1) { next = "ParteA"; targets = {101:115, 102:115, 103:0, 104:0}; }
+        else if (code === 2) { next = "ParteB"; targets = {101:105, 102:105, 103:80, 104:50}; }
+        else if (code === 3) { next = "Final"; targets = {101:80, 102:80, 103:127, 104:127}; }
 
-        // Lógica de Mute/Unmute
         const isLow = (t) => t === "Início" || t === "ParteA";
         if (isLow(old) && !isLow(next)) {
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
@@ -347,95 +201,69 @@ const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {
             await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
         }
-
+        currentTransition = next; currentTransIndex = code;
+        document.getElementById('disp-trans').innerText = next;
         runTransition(targets);
     }
 
     function runTransition(targets) {
-    if (transInterval) {
         timerWorker.postMessage({ action: 'stop' });
-        transInterval = null;
-    }
-
-    let step = 0;
-    const steps = 40;
-    const intervalTime = 100; // Ajuste conforme seu teste (ex: 100ms)
-    const startValues = { ...ccLevels };
-
-    // Handler para os ticks do Worker
-    timerWorker.onmessage = function(e) {
-        if (e.data === 'tick') {
-            step++;
-            const ratio = step / steps;
-            
+        let step = 0, steps = 40, startVals = { ...ccLevels };
+        timerWorker.onmessage = () => {
+            step++; const ratio = step/steps;
             Object.keys(targets).forEach(cc => {
-                applyCurveAndSend(parseInt(cc), startValues[cc] + (targets[cc] - startValues[cc]) * ratio);
+                let val = startVals[cc] + (targets[cc] - startVals[cc]) * ratio;
+                ccLevels[cc] = val;
+                let logVal = Math.round(127 * Math.pow(val / 127, 1.5));
+                output.send([0xB0, parseInt(cc), logVal]);
+                document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
             });
-
             document.getElementById('disp-time').innerText = `${((steps - step) * 0.1).toFixed(1)}s`;
-
-            if (step >= steps) {
-                timerWorker.postMessage({ action: 'stop' });
-                transInterval = null;
-            }
-        }
-    };
-
-    // Inicia o Worker
-    transInterval = true; 
-    timerWorker.postMessage({ action: 'start', interval: intervalTime });
-}
-
+            if (step >= steps) timerWorker.postMessage({ action: 'stop' });
+        };
+        timerWorker.postMessage({ action: 'start', interval: 100 });
+    }
 
     async function setKeyboardMode(mode) {
-    const old = currentKeyboardMode;
-    currentKeyboardMode = mode;
-    document.getElementById('disp-mode').innerText = mode;
-
-    if (mode === "Natural") {
-        // Reset Velocity
-        await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]); 
-        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-        
-        for(let ch of CHS_1_5) {
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]); // TOP C8 Primeiro
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]); // BOT C1
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00]); // Transp 0
-        }
-    } 
-    else if (mode === "Baixo") {
-        if (old === "Solo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
-        
-        // Velocity Baixo Normal, Solos Max
-        await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
-        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-        
-        for(let ch of CHS_1_5) {
-            // ORDEM CRÍTICA: Primeiro abre o topo (C8), depois sobe o fundo (F4)
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]); // TOP C8
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x41]); // BOT F4
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x7F, 0x7F, 0x74]); // Transp -12
-        }
-    } 
-    else if (mode === "Solo") {
-        if (old === "Baixo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
-        
-        // Velocity Solos Normal, Baixo Max
-        await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
-        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
-        
-        for(let ch of CHS_1_5) {
-            // ORDEM CRÍTICA: Primeiro desce o fundo (C1), depois fecha o topo (B3)
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]); // BOT C1
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x3B]); // TOP B3
-            await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x0C]); // Transp +12
+        currentKeyboardMode = mode;
+        document.getElementById('disp-mode').innerText = mode;
+        if (mode === "Natural") {
+            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            for(let ch of CHS_1_5) {
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00]);
+            }
+        } else if (mode === "Baixo") {
+            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            for(let ch of CHS_1_5) {
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x41]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x7F, 0x7F, 0x74]);
+            }
+        } else if (mode === "Solo") {
+            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
+            for(let ch of CHS_1_5) {
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x3B]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x0C]);
+            }
         }
     }
-}
 
+    async function resetGeral() {
+        timerWorker.postMessage({ action: 'stop' });
+        document.getElementById('disp-time').innerText = "0.0s";
+        await sendSysex([0x43, 0x0F, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x01]);
+        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]);
+        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
+    }
 </script>
 </body>
 </html>
