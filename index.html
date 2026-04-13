@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nautilus</title>
+    <title>Nautilus Pro 1.5</title>
     <style>
         :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
         html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100%; width: 100%; position: fixed; touch-action: none; }
@@ -32,7 +32,6 @@
         /* Mixer Bars */
         .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 120px; gap: 8px; margin-bottom: 5px; }
         .bar-container { width: 35px; height: 100%; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
-        .bar-val { font-size: 10px; color: var(--success); text-align: center; font-weight: bold; margin-bottom: 2px; height: 12px; }
         .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); transition: height 0.1s linear; }
         .cc-label { font-size: 10px; color: #888; font-weight: bold; text-align: center; }
     </style>
@@ -42,7 +41,7 @@
     <audio id="silent-audio" loop><source src="https://google.com"></audio>
 
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v1.6.1</h2>
+        <h2 style="color: var(--accent)">Nautilus Pro v1.5</h2>
         <button id="btn-init">1. HABILITAR MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -114,17 +113,6 @@
         }
     };
 
-    function applyCurveAndSend(cc, linearVal) {
-        if (!output) return;
-        ccLevels[cc] = linearVal;
-        let logVal = Math.round(127 * Math.pow(linearVal / 127, 1.5));
-        output.send([0xB0, parseInt(cc), logVal]);
-        
-        // Atualiza UI: Barra e Valor numérico
-        document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
-        document.getElementById(`val${cc}`).innerText = logVal;
-    }
-
     async function sendSysex(data) {
         if (!output) return;
         output.send([...SYSEX_HDR, ...data, 0xF7]);
@@ -146,32 +134,27 @@
         const status = d[0] & 0xF0, channel = d[0] & 0x0F, now = Date.now();
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
-        // --- CONTINUIDADE ---
+        // --- CONTINUIDADE / PROGRAM CHANGE ---
         if (status === 0xC0) {
-            await new Promise(r => setTimeout(r, 200)); // Delay para o Nautilus carregar os sons
-            
-            if (channel === 4) { // CANAL 5 - COMPLETO
+            await new Promise(r => setTimeout(r, 150));
+            if (channel === 4) { // Canal 5
                 keyboardModeOnly = false;
                 await setStatus(true);
-                // REAPLICA ESTADO SALVO
                 await setKeyboardMode(currentKeyboardMode);
-                await handleTransitionTrigger(currentTransIndex, false); 
-            } 
-            else if (channel === 3) { // CANAL 4 - SÓ TECLADO
+                await handleTransitionTrigger(currentTransIndex, false);
+            } else if (channel === 3) { // Canal 4
                 keyboardModeOnly = true;
                 await setStatus(true);
-                await setKeyboardMode(currentKeyboardMode); // Mantém o modo de teclado
-                currentTransIndex = 0; // Reseta visual da transição
-                document.getElementById('disp-trans').innerText = "Início";
-            } 
-            else { await setStatus(false); }
+                await setKeyboardMode(currentKeyboardMode);
+                currentTransIndex = 0; document.getElementById('disp-trans').innerText = "Início";
+            } else { await setStatus(false); currentTransIndex = 0; currentKeyboardMode = "Natural"; }
             return;
         }
 
         if (!isMidiActive) return;
 
-        // --- JOYSTICK (AGORA COM TRAVA PARA 'SÓ TECLADO') ---
-        if (status === 0xB0 && !keyboardModeOnly) { // Bloqueia joystick se for 'Só Teclado'
+        // --- JOYSTICK (TRAVA DE TEMPO 300MS) ---
+        if (status === 0xB0) {
             if (d[1] === 1) { // Modulation Y+
                 if (d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
                     if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
@@ -186,17 +169,11 @@
             }
         }
 
-        // Sincronia de Gatilho e Modos via Sysex do Nautilus
-        if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) {
-            let code = d[d.length - 2];
-            currentTransIndex = code; // Salva o índice para continuidade
-            handleTransitionTrigger(code, true);
-        }
-        
+        // Sincronia de Gatilho e Modos via Sysex
+        if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2], true);
         if (hex.includes("5D 43 1B 00 00 06")) {
-            let v = d[14], v11 = d[11];
-            if (v11 === 1 && v === 1) setKeyboardMode("Baixo");
-            else if (v11 === 0 && v === 1) setKeyboardMode("Solo");
+            if (d[11] === 1 && d[14] === 1) setKeyboardMode("Baixo");
+            else if (d[11] === 0 && d[14] === 1) setKeyboardMode("Solo");
             else setKeyboardMode("Natural");
         }
     }
@@ -233,11 +210,13 @@
         timerWorker.postMessage({ action: 'stop' });
         let step = 0, steps = 40, startVals = { ...ccLevels };
         timerWorker.onmessage = () => {
-            step++; 
-            const ratio = step / steps;
+            step++; const ratio = step/steps;
             Object.keys(targets).forEach(cc => {
-                let currentVal = startVals[cc] + (targets[cc] - startVals[cc]) * ratio;
-                applyCurveAndSend(cc, currentVal);
+                let val = startVals[cc] + (targets[cc] - startVals[cc]) * ratio;
+                ccLevels[cc] = val;
+                let logVal = Math.round(127 * Math.pow(val / 127, 1.5));
+                output.send([0xB0, parseInt(cc), logVal]);
+                document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
             });
             document.getElementById('disp-time').innerText = `${((steps - step) * 0.1).toFixed(1)}s`;
             if (step >= steps) timerWorker.postMessage({ action: 'stop' });
