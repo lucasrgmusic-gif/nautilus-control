@@ -46,7 +46,8 @@
     <audio id="silent-audio" loop><source src="https://google.com"></audio>
 
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v1.5.4</h2>
+        // VERSAO AQUI ----------------------------- V -------
+        <h2 style="color: var(--accent)">Nautilus v1.5.5</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -155,7 +156,7 @@
          // --- CONTINUIDADE / PROGRAM CHANGE (0xC0) ---
         if (status === 0xC0) {
             // Aumentamos o delay para 250ms para garantir que o Nautilus carregou o novo timbre
-            await new Promise(r => setTimeout(r, 250));
+            await new Promise(r => setTimeout(r, 350));
             
             if (channel === 4) { // Canal 5: CONTROLE COMPLETO
                 keyboardModeOnly = false;
@@ -189,7 +190,6 @@
             }
             return;
         }
-
 
         if (!isMidiActive) return;
 
