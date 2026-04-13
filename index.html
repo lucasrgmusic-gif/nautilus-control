@@ -34,6 +34,9 @@
         .bar-container { width: 35px; height: 100%; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
         .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); transition: height 0.1s linear; }
         .cc-label { font-size: 10px; color: #888; font-weight: bold; text-align: center; }
+
+        .bar-outer { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .cc-value { font-size: 10px; color: var(--accent); font-family: monospace; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -65,6 +68,22 @@
 
             <div class="q-mixer">
                 <div class="mixer">
+                    <div class="bar-outer">
+        <div id="val-101" class="cc-value">0</div>
+        <div class="bar-container"><div id="bar101" class="bar-fill"></div></div>
+    </div>
+    <div class="bar-outer">
+        <div id="val-102" class="cc-value">0</div>
+        <div class="bar-container"><div id="bar102" class="bar-fill"></div></div>
+    </div>
+    <div class="bar-outer">
+        <div id="val-103" class="cc-value">0</div>
+        <div class="bar-container"><div id="bar103" class="bar-fill"></div></div>
+    </div>
+    <div class="bar-outer">
+        <div id="val-104" class="cc-value">0</div>
+        <div class="bar-container"><div id="bar104" class="bar-fill"></div></div>
+    </div>
                     <div class="bar-container"><div id="bar101" class="bar-fill"></div></div>
                     <div class="bar-container"><div id="bar102" class="bar-fill"></div></div>
                     <div class="bar-container"><div id="bar103" class="bar-fill"></div></div>
@@ -137,38 +156,45 @@
 
         // --- CONTINUIDADE / PROGRAM CHANGE ---
         if (status === 0xC0) {
-            await new Promise(r => setTimeout(r, 150));
-            if (channel === 4) { // Canal 5
-                keyboardModeOnly = false;
-                await setStatus(true);
-                await setKeyboardMode(currentKeyboardMode);
-                await handleTransitionTrigger(currentTransIndex, false);
-            } else if (channel === 3) { // Canal 4
-                keyboardModeOnly = true;
-                await setStatus(true);
-                await setKeyboardMode(currentKeyboardMode);
-                currentTransIndex = 0; document.getElementById('disp-trans').innerText = "Início";
-            } else { await setStatus(false); currentTransIndex = 0; currentKeyboardMode = "Natural"; }
-            return;
+        await new Promise(r => setTimeout(r, 150));
+    
+        // Reset de variáveis para o padrão do novo timbre
+        currentTransIndex = 0;
+        currentKeyboardMode = "Natural";
+    
+        if (channel === 4) { // Canal 5
+            keyboardModeOnly = false;
+              await setStatus(true);
+        } else if (channel === 3) { // Canal 4
+            keyboardModeOnly = true;
+            await setStatus(true);
+        } else { 
+            await setStatus(false); 
         }
 
-        if (!isMidiActive) return;
+        // Forçar atualização do hardware e UI para o estado padrão
+        await setKeyboardMode(currentKeyboardMode);
+        await handleTransitionTrigger(0, false); 
+        return;
+}
 
-        // --- JOYSTICK (TRAVA DE TEMPO 300MS) ---
-        if (status === 0xB0) {
-            if (d[1] === 1) { // Modulation Y+
-                if (d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
-                    if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
-                    upLock = true; lastJoystickTime = now;
-                } else if (d[2] < 15) upLock = false;
-            }
-            if (d[1] === 2) { // Breath Y-
-                if (d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
-                    if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
-                    downLock = true; lastJoystickTime = now;
-                } else if (d[2] < 15) downLock = false;
-            }
-        }
+if (!isMidiActive) return;
+
+// 2. Bloqueio do Joystick no modo "Apenas Teclado"
+if (status === 0xB0 && !keyboardModeOnly) { // Adicionada a trava !keyboardModeOnly
+    if (d[1] === 1) { // Modulation Y+
+        if (d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
+            if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
+            upLock = true; lastJoystickTime = now;
+        } else if (d[2] < 15) upLock = false;
+    }
+    if (d[1] === 2) { // Breath Y-
+        if (d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
+            if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
+            downLock = true; lastJoystickTime = now;
+        } else if (d[2] < 15) downLock = false;
+    }
+}
 
         // Sincronia de Gatilho e Modos via Sysex
         if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2], true);
@@ -208,22 +234,30 @@
     }
 
     function runTransition(targets) {
-        timerWorker.postMessage({ action: 'stop' });
-        let step = 0, steps = 40, startVals = { ...ccLevels };
-        timerWorker.onmessage = () => {
-            step++; const ratio = step/steps;
-            Object.keys(targets).forEach(cc => {
-                let val = startVals[cc] + (targets[cc] - startVals[cc]) * ratio;
-                ccLevels[cc] = val;
-                let logVal = Math.round(127 * Math.pow(val / 127, 1.5));
-                output.send([0xB0, parseInt(cc), logVal]);
-                document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
-            });
-            document.getElementById('disp-time').innerText = `${((steps - step) * 0.1).toFixed(1)}s`;
-            if (step >= steps) timerWorker.postMessage({ action: 'stop' });
-        };
-        timerWorker.postMessage({ action: 'start', interval: 100 });
-    }
+    timerWorker.postMessage({ action: 'stop' });
+    let step = 0, steps = 40, startVals = { ...ccLevels };
+    
+    timerWorker.onmessage = () => {
+        step++; const ratio = step/steps;
+        Object.keys(targets).forEach(cc => {
+            let val = startVals[cc] + (targets[cc] - startVals[cc]) * ratio;
+            ccLevels[cc] = val;
+            
+            // Curva Logarítmica para Volume (Percepção humana)
+            let logVal = Math.round(127 * Math.pow(val / 127, 1.5));
+            
+            output.send([0xB0, parseInt(cc), logVal]);
+            
+            // Atualiza Barra e Valor Numérico
+            document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
+            document.getElementById(`val-${cc}`).innerText = logVal;
+        });
+        
+        document.getElementById('disp-time').innerText = `${((steps - step) * 0.1).toFixed(1)}s`;
+        if (step >= steps) timerWorker.postMessage({ action: 'stop' });
+    };
+    timerWorker.postMessage({ action: 'start', interval: 100 });
+}
 
     async function setKeyboardMode(mode) {
         currentKeyboardMode = mode;
