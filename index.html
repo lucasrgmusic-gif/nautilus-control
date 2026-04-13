@@ -56,7 +56,7 @@
                     <div id="disp-trans" class="val-trans">Início</div>
                 </div>
                 <div>
-                    <div class="info-label">Tempo / Modo</div>
+                    <div class="info-label">Tempo & Modo</div>
                     <div id="disp-time" class="val-time">0.0s</div>
                     <div id="disp-mode" class="val-mode">Natural</div>
                 </div>
@@ -71,8 +71,8 @@
                     <div class="bar-container"><div id="bar104" class="bar-fill"></div></div>
                 </div>
                 <div style="display: flex; justify-content: space-around;">
-                    <span class="cc-label">101</span><span class="cc-label">102</span>
-                    <span class="cc-label">103</span><span class="cc-label">104</span>
+                    <span class="cc-label">CC 101</span><span class="cc-label">CC 102</span>
+                    <span class="cc-label">CC 103</span><span class="cc-label">CC 104</span>
                 </div>
             </div>
         </div>
@@ -122,7 +122,7 @@
     async function setStatus(active) {
         isMidiActive = active;
         const el = document.getElementById('txt-active');
-        const modeTxt = keyboardModeOnly ? " (SÓ TECLADO)" : " (COMPLETO)";
+        const modeTxt = keyboardModeOnly ? " (TECLADO)" : " (COMPLETO)";
         el.innerText = active ? "CONTROLE ATIVO" + modeTxt : "CONTROLE INATIVO";
         el.className = `status-bar ${active ? 'status-on' : 'status-off'}`;
         document.querySelector('.q-mixer').style.opacity = (active && !keyboardModeOnly) ? "1" : "0.3";
