@@ -50,7 +50,7 @@
         
          <!-- VERSAO AQUI -------------------------- V ---------->
         
-        <h2 style="color: var(--accent)">Nautilus v1.6</h2>
+        <h2 style="color: var(--accent)">Nautilus v1.6.1</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -151,43 +151,57 @@
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, active ? 0x01 : 0x00]);
     }
 
-        async function syncHardwareInstant() {
-        const code = currentTransIndex;
-        const mode = currentKeyboardMode;
-
-        // 1. Sincroniza a Cena (Transição) via Sysex conforme sua tabela
-        // O código (00 a 03) entra no final do Sysex 0x6D
-        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
-
-        // 2. Sincroniza o Modo de Teclado (SWs) via Sysex conforme sua tabela
-        if (mode === "Baixo") {
-            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
-        } else if (mode === "Solo") {
-            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
-        }
-        // Se for Natural, os SWs costumam ficar desligados (depende da sua config)
-
-        // 3. Define e envia os volumes CC
-        let targets = {};
-        if (code === 0) targets = {101:127, 102:0, 103:0, 104:0};
-        else if (code === 1) targets = {101:115, 102:115, 103:0, 104:0};
-        else if (code === 2) targets = {101:105, 102:105, 103:80, 104:50};
-        else if (code === 3) targets = {101:80, 102:80, 103:127, 104:127};
-
-        Object.keys(targets).forEach(cc => {
-            let val = targets[cc];
-            let logVal = Math.round(127 * Math.pow(val / 127, 1.5));
-            output.send([0xB0, parseInt(cc), logVal]);
-            ccLevels[cc] = val;
-            document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
-            document.getElementById(`val-${cc}`).innerText = logVal;
-        });
-
-        // Atualiza Displays
-        const names = ["Início", "ParteA", "ParteB", "Final"];
-        document.getElementById('disp-trans').innerText = names[code];
-        document.getElementById('disp-mode').innerText = mode;
+ 
+    async function updateChannelMutes(code) {
+    if (code === 0 || code === 1) { // Transição 1 e 2
+        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]); // Ch 6 Unmute
+        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]); // Ch 7 Mute
+    } else if (code === 2 || code === 3) { // Transição 3 e 4
+        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]); // Ch 6 Mute
+        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]); // Ch 7 Unmute
     }
+    }
+
+
+    async function syncHardwareInstant() {
+    const code = currentTransIndex;
+    const mode = currentKeyboardMode;
+
+    // 1. Cena (Transição)
+    await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
+
+    // 2. Modos de Teclado e SWs
+    if (mode === "Baixo") {
+        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]); // SW1 ON
+    } else if (mode === "Solo") {
+        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]); // SW2 ON
+    } else { // Natural
+        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); // SW1 OFF
+        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // SW2 OFF
+    }
+
+    // 3. Mutes dos Canais 6 e 7
+    await updateChannelMutes(code);
+
+    // 4. Volumes CC (Instantâneo)
+    let targets = {};
+    if (code === 0) targets = {101:127, 102:0, 103:0, 104:0};
+    else if (code === 1) targets = {101:115, 102:115, 103:0, 104:0};
+    else if (code === 2) targets = {101:105, 102:105, 103:80, 104:50};
+    else if (code === 3) targets = {101:80, 102:80, 103:127, 104:127};
+
+    Object.keys(targets).forEach(cc => {
+        let logVal = Math.round(127 * Math.pow(targets[cc] / 127, 1.5));
+        output.send([0xB0, parseInt(cc), logVal]);
+        ccLevels[cc] = targets[cc];
+        document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
+        document.getElementById(`val-${cc}`).innerText = logVal;
+    });
+
+    document.getElementById('disp-trans').innerText = ["Início", "ParteA", "ParteB", "Final"][code];
+    document.getElementById('disp-mode').innerText = mode;
+}
+
 
 
     async function handleMidi(e) {
