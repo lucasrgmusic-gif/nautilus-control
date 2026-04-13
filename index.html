@@ -46,8 +46,11 @@
     <audio id="silent-audio" loop><source src="https://google.com"></audio>
 
     <div id="setup" class="screen active">
-        // VERSAO AQUI ----------------------------- V -------
-        <h2 style="color: var(--accent)">Nautilus v1.5.6</h2>
+
+        
+         <!-- VERSAO AQUI -------------------------- V ---------->
+        
+        <h2 style="color: var(--accent)">Nautilus v1.6</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -148,11 +151,24 @@
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, active ? 0x01 : 0x00]);
     }
 
-    async function syncHardwareInstant() {
-        let targets = {};
+        async function syncHardwareInstant() {
         const code = currentTransIndex;
+        const mode = currentKeyboardMode;
 
-        // Define os alvos baseados no índice atual
+        // 1. Sincroniza a Cena (Transição) via Sysex conforme sua tabela
+        // O código (00 a 03) entra no final do Sysex 0x6D
+        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
+
+        // 2. Sincroniza o Modo de Teclado (SWs) via Sysex conforme sua tabela
+        if (mode === "Baixo") {
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
+        } else if (mode === "Solo") {
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
+        }
+        // Se for Natural, os SWs costumam ficar desligados (depende da sua config)
+
+        // 3. Define e envia os volumes CC
+        let targets = {};
         if (code === 0) targets = {101:127, 102:0, 103:0, 104:0};
         else if (code === 1) targets = {101:115, 102:115, 103:0, 104:0};
         else if (code === 2) targets = {101:105, 102:105, 103:80, 104:50};
@@ -160,22 +176,19 @@
 
         Object.keys(targets).forEach(cc => {
             let val = targets[cc];
-            // Aplica a mesma curva logarítmica para manter a coerência do volume
             let logVal = Math.round(127 * Math.pow(val / 127, 1.5));
-            
-            // Envia para o MIDI de forma imediata
             output.send([0xB0, parseInt(cc), logVal]);
-            
-            // Atualiza a memória global e a interface
             ccLevels[cc] = val;
             document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
             document.getElementById(`val-${cc}`).innerText = logVal;
         });
-        
-        // Garante que o nome da transição no display esteja correto
+
+        // Atualiza Displays
         const names = ["Início", "ParteA", "ParteB", "Final"];
         document.getElementById('disp-trans').innerText = names[code];
+        document.getElementById('disp-mode').innerText = mode;
     }
+
 
     async function handleMidi(e) {
         const d = Array.from(e.data);
@@ -183,36 +196,36 @@
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
          // --- CONTINUIDADE / PROGRAM CHANGE (0xC0) ---
-      if (status === 0xC0) {
-            // Travamos os valores atuais em variáveis temporárias antes de qualquer processamento
+              if (status === 0xC0) {
             const keepTrans = currentTransIndex;
             const keepMode = currentKeyboardMode;
 
-            await new Promise(r => setTimeout(r, 350)); // Delay seguro
+            // Mantém a UI estável enquanto o hardware carrega
+            document.getElementById('disp-trans').innerText = ["Início", "ParteA", "ParteB", "Final"][keepTrans];
+            document.getElementById('disp-mode').innerText = keepMode;
+
+            await new Promise(r => setTimeout(r, 350)); 
             
-            if (channel === 4) { // CANAL 5: PERSISTÊNCIA TOTAL
+            if (channel === 4) { // CANAL 5: TUDO MANTIDO
                 keyboardModeOnly = false;
                 await setStatus(true);
-                
-                // Forçamos a restauração dos valores que salvamos antes do delay
                 currentTransIndex = keepTrans;
                 currentKeyboardMode = keepMode;
                 
-                // Sincroniza hardware com o que estava na tela
+                // Primeiro aplicamos os parâmetros de canal (Mutes/Volumes)
                 await setKeyboardMode(currentKeyboardMode); 
+                // Depois sincronizamos os botões SW e Cena
                 await syncHardwareInstant(); 
             } 
-            else if (channel === 3) { // CANAL 4: RESET TRANSIÇÃO, MANTER MODO
+            else if (channel === 3) { // CANAL 4: RESET TRANSIÇÃO
                 keyboardModeOnly = true;
                 await setStatus(true);
                 currentTransIndex = 0; 
-                currentKeyboardMode = keepMode; // Mantém o modo (Solo/Baixo/etc)
-                
+                currentKeyboardMode = keepMode;
                 await setKeyboardMode(currentKeyboardMode);
                 await syncHardwareInstant();
             } 
             else { 
-                // Reset apenas se não for Canal 4 ou 5
                 await setStatus(false);
                 currentTransIndex = 0;
                 currentKeyboardMode = "Natural";
@@ -220,6 +233,7 @@
             }
             return;
         }
+
 
 
         if (!isMidiActive) return;
