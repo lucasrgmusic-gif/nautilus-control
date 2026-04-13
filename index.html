@@ -184,34 +184,43 @@
 
          // --- CONTINUIDADE / PROGRAM CHANGE (0xC0) ---
       if (status === 0xC0) {
-            await new Promise(r => setTimeout(r, 300));
+            // Travamos os valores atuais em variáveis temporárias antes de qualquer processamento
+            const keepTrans = currentTransIndex;
+            const keepMode = currentKeyboardMode;
+
+            await new Promise(r => setTimeout(r, 350)); // Delay seguro
             
-            if (channel === 4) { // CANAL 5: MANTER TUDO
+            if (channel === 4) { // CANAL 5: PERSISTÊNCIA TOTAL
                 keyboardModeOnly = false;
                 await setStatus(true);
                 
-                // 1. Sincroniza o modo de teclado atual (Sysex)
-                await setKeyboardMode(currentKeyboardMode); 
+                // Forçamos a restauração dos valores que salvamos antes do delay
+                currentTransIndex = keepTrans;
+                currentKeyboardMode = keepMode;
                 
-                // 2. Envia CCs da transição ATUAL de forma instantânea (sem animação)
+                // Sincroniza hardware com o que estava na tela
+                await setKeyboardMode(currentKeyboardMode); 
                 await syncHardwareInstant(); 
             } 
-            else if (channel === 3) { // CANAL 4: RESETAR TRANSIÇÃO, MANTER MODO
+            else if (channel === 3) { // CANAL 4: RESET TRANSIÇÃO, MANTER MODO
                 keyboardModeOnly = true;
                 await setStatus(true);
                 currentTransIndex = 0; 
-                document.getElementById('disp-trans').innerText = "Início";
+                currentKeyboardMode = keepMode; // Mantém o modo (Solo/Baixo/etc)
                 
                 await setKeyboardMode(currentKeyboardMode);
-                await syncHardwareInstant(); // Reseta para valores do "Início" instantaneamente
+                await syncHardwareInstant();
             } 
             else { 
+                // Reset apenas se não for Canal 4 ou 5
                 await setStatus(false);
                 currentTransIndex = 0;
                 currentKeyboardMode = "Natural";
+                await syncHardwareInstant();
             }
             return;
         }
+
 
         if (!isMidiActive) return;
 
