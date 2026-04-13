@@ -30,13 +30,15 @@
         .status-off { background: rgba(255, 69, 58, 0.2); color: var(--danger); border: 1px solid var(--danger); }
 
         /* Mixer Bars */
-        .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 120px; gap: 8px; margin-bottom: 5px; }
-        .bar-container { width: 35px; height: 100%; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
         .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); transition: height 0.1s linear; }
         .cc-label { font-size: 10px; color: #888; font-weight: bold; text-align: center; }
+        /* Garante que o container das barras tenha altura */
+        .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 160px; gap: 8px; margin-bottom: 5px; }
+        .bar-outer { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 5px; }
+        .bar-container { width: 35px; height: 120px; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
+        .cc-value { font-size: 11px; color: var(--accent); font-family: monospace; font-weight: 900; min-height: 14px; }
 
-        .bar-outer { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-        .cc-value { font-size: 10px; color: var(--accent); font-family: monospace; font-weight: bold; }
+
     </style>
 </head>
 <body>
@@ -44,7 +46,7 @@
     <audio id="silent-audio" loop><source src="https://google.com"></audio>
 
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v1.5.2</h2>
+        <h2 style="color: var(--accent)">Nautilus v1.5.3</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -151,46 +153,49 @@
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
         // --- CONTINUIDADE / PROGRAM CHANGE ---
-        if (status === 0xC0) {
-        await new Promise(r => setTimeout(r, 150));
-    
-        // Reset de variáveis para o padrão do novo timbre
-        currentTransIndex = 0;
-        currentKeyboardMode = "Natural";
-    
-        if (channel === 4) { // Canal 5
-            keyboardModeOnly = false;
-              await setStatus(true);
-        } else if (channel === 3) { // Canal 4
-            keyboardModeOnly = true;
-            await setStatus(true);
-        } else { 
-            await setStatus(false); 
+           if (status === 0xC0) {
+            await new Promise(r => setTimeout(r, 150));
+            
+            if (channel === 4) { // Canal 5: CONTROLE COMPLETO
+                keyboardModeOnly = false;
+                await setStatus(true);
+                // Não reseta transição nem modo, apenas re-aplica para sincronizar hardware
+                await setKeyboardMode(currentKeyboardMode);
+                await handleTransitionTrigger(currentTransIndex, false);
+            } 
+            else if (channel === 3) { // Canal 4: CONTROLE TECLADO
+                keyboardModeOnly = true;
+                await setStatus(true);
+                currentTransIndex = 0; // Reset apenas da transição
+                document.getElementById('disp-trans').innerText = "Início";
+                await setKeyboardMode(currentKeyboardMode);
+                await handleTransitionTrigger(0, false);
+            } 
+            else { // Outros canais: INATIVO
+                await setStatus(false);
+                currentTransIndex = 0;
+                currentKeyboardMode = "Natural";
+            }
+            return;
         }
 
-        // Forçar atualização do hardware e UI para o estado padrão
-        await setKeyboardMode(currentKeyboardMode);
-        await handleTransitionTrigger(0, false); 
-        return;
-}
+        if (!isMidiActive) return;
 
-if (!isMidiActive) return;
-
-// 2. Bloqueio do Joystick no modo "Apenas Teclado"
-if (status === 0xB0 && !keyboardModeOnly) { // Adicionada a trava !keyboardModeOnly
-    if (d[1] === 1) { // Modulation Y+
-        if (d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
-            if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
-            upLock = true; lastJoystickTime = now;
-        } else if (d[2] < 15) upLock = false;
-    }
-    if (d[1] === 2) { // Breath Y-
-        if (d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
-            if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
-            downLock = true; lastJoystickTime = now;
-        } else if (d[2] < 15) downLock = false;
-    }
-}
+        // --- JOYSTICK (Bloqueado se for keyboardModeOnly) ---
+        if (status === 0xB0 && !keyboardModeOnly) {
+            if (d[1] === 1) { // Modulation Y+
+                if (d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
+                    if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
+                    upLock = true; lastJoystickTime = now;
+                } else if (d[2] < 15) upLock = false;
+            }
+            if (d[1] === 2) { // Breath Y-
+                if (d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
+                    if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
+                    downLock = true; lastJoystickTime = now;
+                } else if (d[2] < 15) downLock = false;
+            }
+        }
 
         // Sincronia de Gatilho e Modos via Sysex
         if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2], true);
