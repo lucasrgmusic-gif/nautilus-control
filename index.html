@@ -46,7 +46,7 @@
     <audio id="silent-audio" loop><source src="https://google.com"></audio>
 
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v1.5.3</h2>
+        <h2 style="color: var(--accent)">Nautilus v1.5.4</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -152,32 +152,44 @@
         const status = d[0] & 0xF0, channel = d[0] & 0x0F, now = Date.now();
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
-        // --- CONTINUIDADE / PROGRAM CHANGE ---
-           if (status === 0xC0) {
-            await new Promise(r => setTimeout(r, 150));
+         // --- CONTINUIDADE / PROGRAM CHANGE (0xC0) ---
+        if (status === 0xC0) {
+            // Aumentamos o delay para 250ms para garantir que o Nautilus carregou o novo timbre
+            await new Promise(r => setTimeout(r, 250));
             
             if (channel === 4) { // Canal 5: CONTROLE COMPLETO
                 keyboardModeOnly = false;
                 await setStatus(true);
-                // Não reseta transição nem modo, apenas re-aplica para sincronizar hardware
-                await setKeyboardMode(currentKeyboardMode);
-                await handleTransitionTrigger(currentTransIndex, false);
+                
+                // MANTÉM os estados atuais e re-envia para o hardware
+                // Sincroniza o modo de teclado que já estava na tela
+                await setKeyboardMode(currentKeyboardMode); 
+                // Sincroniza a transição que já estava na tela
+                await handleTransitionTrigger(currentTransIndex, false); 
             } 
             else if (channel === 3) { // Canal 4: CONTROLE TECLADO
                 keyboardModeOnly = true;
                 await setStatus(true);
-                currentTransIndex = 0; // Reset apenas da transição
+                
+                // Reset apenas da transição para "Início"
+                currentTransIndex = 0; 
                 document.getElementById('disp-trans').innerText = "Início";
+                
+                // Mantém o modo de teclado, mas reseta volume/faders
                 await setKeyboardMode(currentKeyboardMode);
                 await handleTransitionTrigger(0, false);
             } 
-            else { // Outros canais: INATIVO
+            else { 
+                // Outros canais: Tudo OFF e Reset total
                 await setStatus(false);
                 currentTransIndex = 0;
                 currentKeyboardMode = "Natural";
+                document.getElementById('disp-trans').innerText = "Início";
+                document.getElementById('disp-mode').innerText = "Natural";
             }
             return;
         }
+
 
         if (!isMidiActive) return;
 
