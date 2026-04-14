@@ -13,11 +13,8 @@
         #main-container { display: flex; width: 100vw; height: 85vh; }
         .q-display { flex: 1.2; padding: 30px; border-right: 2px solid #222; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
         .q-mixer { flex: 0.8; padding: 10px; background: var(--panel); display: flex; flex-direction: column; justify-content: center; }
-        
-        /* Display Canal Cores */
         .val-chan { font-size: 42px; font-weight: 900; line-height: 1; text-transform: uppercase; color: #fff; }
         .chan-off { color: var(--danger) !important; }
-        
         .val-trans { font-size: 48px; font-weight: 900; color: var(--accent); line-height: 1.1; }
         .row-time { display: flex; align-items: baseline; gap: 15px; margin-top: 10px; }
         .val-bpm { font-size: 24px; font-weight: 700; color: var(--success); }
@@ -31,11 +28,9 @@
     </style>
 </head>
 <body>
-
     <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
-
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v1.5</h2>
+        <h2 style="color: var(--accent)">Nautilus v2.2</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -71,6 +66,7 @@
     let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 }, bpm = 40;
     let clockCount = 0, lastClockTime = 0, lastClockReceived = 0;
     let ondulacaoInterval = null, ondulacaoVals = { 101: 120, 102: 90, 103: 60, 104: 30 }, ondulacaoDirs = { 101: 1, 102: 1, 103: 1, 104: 1 };
+    let upLock = false, downLock = false, lastJoystickTime = 0;
 
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
@@ -85,7 +81,7 @@
             i.innerHTML = ""; o.innerHTML = "";
             midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
             midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
-        } catch(e) { console.log("Sem dispositivos MIDI."); }
+        } catch(e) { console.log("MIDI indisponível."); }
     };
 
     document.getElementById('btn-ok').onclick = () => {
@@ -120,10 +116,10 @@
             return;
         }
 
-        // --- ESCUTA MODOS DE TECLADO ---
+        // --- ESCUTA MODOS DE TECLADO (BOTÕES NAUTILUS) ---
         if (hex.includes("5D 43 1B 00 00 06")) {
-            if (hex.endsWith("01 00 00 01")) await setKeyboardMode("Baixo", true);
-            else if (hex.endsWith("00 00 00 01")) await setKeyboardMode("Solo", true);
+            if (hex.includes("06 01 00 00 01")) await setKeyboardMode("Baixo", true);
+            else if (hex.includes("06 00 00 00 01")) await setKeyboardMode("Solo", true);
             else if (hex.includes("00 F7")) await setKeyboardMode("Natural", true);
             return;
         }
@@ -148,15 +144,16 @@
 
         if (!isMidiActive || isOndulacaoMode) return;
 
-        // --- CORREÇÃO JOYSTICK (Byte 1 = CC, Byte 2 = Valor) ---
+        // --- JOYSTICK (CORREÇÃO DE ÍNDICE D[1] E D[2]) ---
         if (status === 0xB0 && !keyboardModeOnly) {
-            if (d[1] === 1 && d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
+            const ccNum = d[1], ccVal = d[2];
+            if (ccNum === 1 && ccVal >= 40 && !upLock && (now - lastJoystickTime > 300)) {
                 if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
                 upLock = true; lastJoystickTime = now;
-            } else if (d[1] === 2 && d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
+            } else if (ccNum === 2 && ccVal >= 40 && !downLock && (now - lastJoystickTime > 300)) {
                 if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
                 downLock = true; lastJoystickTime = now;
-            } else if (d[2] < 15) { upLock = false; downLock = false; }
+            } else if (ccVal < 15) { upLock = false; downLock = false; }
         }
     }
 
@@ -165,7 +162,6 @@
         document.getElementById('disp-mode').innerText = mode;
         if (!output) return;
 
-        // Previne loops se o comando veio do Nautilus
         if (!fromNautilus) {
             if (mode === "Baixo") {
                 await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
@@ -213,20 +209,14 @@
         currentTransIndex = code;
         document.getElementById('disp-trans').innerText = ["Início","ParteA","ParteB","Final"][code];
         if (isInstantMode) {
-            const targets = [{101:127,102:0,103:0,104:0},{101:0,102:127,103:0,104:0},{101:0,102:0,103:127,104:0},{101:0,102:0,103:0,104:127}][code];
-            await syncHardwareInstant(targets);
+            const t = [{101:127,102:0,103:0,104:0},{101:0,102:127,103:0,104:0},{101:0,102:0,103:127,104:0},{101:0,102:0,103:0,104:127}][code];
+            await syncHardwareInstant(t);
             return;
         }
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
         await updateChannelMutes(code);
         const targets = [{101:127,102:0,103:0,104:0},{101:115,102:115,103:0,104:0},{101:105,102:105,103:80,104:50},{101:80,102:80,103:127,104:127}][code];
         runTransition(targets);
-    }
-
-    async function updateChannelMutes(code) {
-        const m6 = (code < 2) ? 0x00 : 0x01, m7 = (code < 2) ? 0x01 : 0x00;
-        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, m6]);
-        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, m7]);
     }
 
     function runTransition(targets) {
@@ -253,14 +243,20 @@
         const code = currentTransIndex;
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
         await updateChannelMutes(code);
-        let targets = customT || [{101:127,102:0,103:0,104:0},{101:115,102:115,103:0,104:0},{101:105,102:105,103:80,104:50},{101:80,102:80,103:127,104:127}][code];
-        Object.keys(targets).forEach(cc => {
-            let log = Math.round(127 * Math.pow(targets[cc] / 127, 1.5));
+        let t = customT || [{101:127,102:0,103:0,104:0},{101:115,102:115,103:0,104:0},{101:105,102:105,103:80,104:50},{101:80,102:80,103:127,104:127}][code];
+        Object.keys(t).forEach(cc => {
+            let log = Math.round(127 * Math.pow(t[cc] / 127, 1.5));
             if (output) output.send([0xB0, parseInt(cc), log]);
-            ccLevels[cc] = targets[cc];
+            ccLevels[cc] = t[cc];
             document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
             document.getElementById(`val-${cc}`).innerText = log;
         });
+    }
+
+    async function updateChannelMutes(code) {
+        const m6 = (code < 2) ? 0x00 : 0x01, m7 = (code < 2) ? 0x01 : 0x00;
+        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, m6]);
+        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, m7]);
     }
 
     function startOndulacao() {
