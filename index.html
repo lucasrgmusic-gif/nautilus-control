@@ -31,11 +31,11 @@
     <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
 
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v2.0.2</h2>
-        <button id="btn-init">CARREGAR MIDI</button>
-        <select id="midi-in"><option value="">Nenhum Entrada</option></select>
-        <select id="midi-out"><option value="">Nenhuma Saída</option></select>
-        <button id="btn-ok" style="background: var(--success); border:none;">CONECTAR / TESTAR UI</button>
+        <h2 style="color: var(--accent)">Nautilus v2.0.3</h2>
+        <button id="btn-init">MIDI</button>
+        <select id="midi-in"></select>
+        <select id="midi-out"></select>
+        <button id="btn-ok" style="background: var(--success); border:none;">CONECTAR</button>
     </div>
 
     <div id="main" class="screen">
@@ -79,11 +79,9 @@
             midiAccess = await navigator.requestMIDIAccess({ sysex: true });
             const i = document.getElementById('midi-in'), o = document.getElementById('midi-out');
             i.innerHTML = ""; o.innerHTML = "";
-            i.add(new Option("Simulador (Sem Entrada)", ""));
-            o.add(new Option("Simulador (Sem Saída)", ""));
             midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
             midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
-        } catch(e) { console.log("MIDI indisponível. Usando modo simulador."); }
+        } catch(e) { console.log("Sem dispositivos MIDI."); }
     };
 
     document.getElementById('btn-ok').onclick = () => {
@@ -118,10 +116,10 @@
             return;
         }
 
-        // --- ESCUTA MODOS DE TECLADO (BOTÕES DO NAUTILUS) ---
+        // --- ESCUTA MODOS DE TECLADO ---
         if (hex.includes("5D 43 1B 00 00 06")) {
-            if (d[11] === 1 && d[14] === 1) await setKeyboardMode("Baixo");
-            else if (d[11] === 0 && d[14] === 1) await setKeyboardMode("Solo");
+            if (hex.endsWith("01 00 00 01")) await setKeyboardMode("Baixo");
+            else if (hex.endsWith("00 00 00 01")) await setKeyboardMode("Solo");
             else await setKeyboardMode("Natural");
             return;
         }
@@ -161,16 +159,10 @@
         document.getElementById('disp-mode').innerText = mode;
         if (!output) return;
 
-        if (mode === "Natural") {
-            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            for(let ch of CHS_1_5) {
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00]);
-            }
-        } else if (mode === "Baixo") {
+        // --- LÓGICA DE EXCLUSIVIDADE SW1 (BAIXO) / SW2 (SOLO) ---
+        if (mode === "Baixo") {
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]); // Ativa SW1
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // Desativa SW2
             await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
             await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
@@ -180,6 +172,8 @@
                 await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x7F, 0x7F, 0x74]);
             }
         } else if (mode === "Solo") {
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]); // Ativa SW2
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); // Desativa SW1
             await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
             await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
@@ -187,6 +181,17 @@
                 await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
                 await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x3B]);
                 await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x0C]);
+            }
+        } else {
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); // Desativa SW1
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // Desativa SW2
+            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            for(let ch of CHS_1_5) {
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00]);
             }
         }
     }
