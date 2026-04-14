@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nautilus v1.5 Pro</title>
+    <title>Nautilus v1.5 Final</title>
     <style>
         :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
         html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100%; width: 100%; position: fixed; touch-action: none; }
@@ -16,7 +16,7 @@
         .q-display { flex: 1.2; padding: 30px; border-right: 2px solid #222; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
         .q-mixer { flex: 0.8; padding: 10px; background: var(--panel); display: flex; flex-direction: column; justify-content: center; }
         
-        .val-chan { font-size: 48px; font-weight: 900; color: #666; line-height: 1; text-transform: uppercase; }
+        .val-chan { font-size: 42px; font-weight: 900; color: #666; line-height: 1; text-transform: uppercase; }
         .val-trans { font-size: 48px; font-weight: 900; color: var(--accent); line-height: 1.1; }
         .row-time { display: flex; align-items: baseline; gap: 15px; margin-top: 10px; }
         .val-bpm { font-size: 24px; font-weight: 700; color: var(--success); }
@@ -53,7 +53,6 @@
                 </div>
                 <div id="disp-mode" class="val-mode">Natural</div>
             </div>
-
             <div class="q-mixer">
                 <div class="mixer">
                     <div class="bar-outer"><div id="val-101" class="cc-value">127</div><div class="bar-container"><div id="bar101" class="bar-fill"></div></div></div>
@@ -67,15 +66,15 @@
 
 <script>
     let midiAccess = null, input = null, output = null, isMidiActive = false;
-    let currentTransition = "Início", currentTransIndex = 0, currentKeyboardMode = "Natural";
-    let keyboardModeOnly = false, isInstantMode = false;
+    let currentTransIndex = 0, currentKeyboardMode = "Natural";
+    let keyboardModeOnly = false, isInstantMode = false, isOndulacaoMode = false;
     let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 };
     let upLock = false, downLock = false, lastJoystickTime = 0;
     let bpm = 40, lastClockTime = 0, clockCount = 0, lastClockReceived = 0;
     let ondulacaoInterval = null, ondulacaoVals = { 101: 120, 102: 90, 103: 60, 104: 30 }, ondulacaoDirs = { 101: 1, 102: 1, 103: 1, 104: 1 };
 
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
-    const CHS_1_5 = [0, 1, 2, 3, 4];
+    const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
 
     const timerWorkerCode = `let t = null; self.onmessage = e => { if(e.data.action==='start'){ t=setInterval(()=>self.postMessage('tick'),e.data.interval)} else clearInterval(t); }`;
     const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {type: 'text/javascript'})));
@@ -125,17 +124,17 @@
 
         if (status === 0xC0) {
             const keepTrans = currentTransIndex; const keepMode = currentKeyboardMode;
-            stopOndulacao(); isInstantMode = false;
+            stopOndulacao(); isInstantMode = false; isOndulacaoMode = false;
             await new Promise(r => setTimeout(r, 350));
             
             const chanLabel = document.getElementById('disp-chan');
-            if (channel === 6) { // Canal 7
-                chanLabel.innerText = "Ondulação"; isMidiActive = true; startOndulacao();
-            } else if (channel === 5) { // Canal 6
+            if (channel === 6) { 
+                chanLabel.innerText = "Ondulação"; isMidiActive = true; isOndulacaoMode = true; startOndulacao();
+            } else if (channel === 5) { 
                 chanLabel.innerText = "Instantâneo"; isMidiActive = true; isInstantMode = true; await handleTransitionTrigger(keepTrans);
-            } else if (channel === 4) { // Canal 5
+            } else if (channel === 4) { 
                 chanLabel.innerText = "Transição"; isMidiActive = true; keyboardModeOnly = false; await setKeyboardMode(keepMode); await syncHardwareInstant();
-            } else if (channel === 3) { // Canal 4
+            } else if (channel === 3) { 
                 chanLabel.innerText = "Padrão"; isMidiActive = true; keyboardModeOnly = true; currentTransIndex = 0; await setKeyboardMode(keepMode); await syncHardwareInstant();
             } else {
                 chanLabel.innerText = "OFF"; isMidiActive = false;
@@ -143,17 +142,17 @@
             return;
         }
 
-        if (hex.includes("5D 6D 05 00 00 05")) { // DRUM
+        if (hex.includes("5D 6D 05 00 00 05")) { 
             await sendSysex([0x43, 0x04, 0x0B, 0x00, 0x0E, 0x00, 0x00, 0x00, d[d.length-2] ? 0x00 : 0x01]);
         }
-        if (hex.includes("5D 6D 05 00 00 04")) { // ARP
+        if (hex.includes("5D 6D 05 00 00 04")) { 
             await sendSysex([0x43, 0x04, 0x0A, 0x00, 0x0E, 0x00, 0x00, 0x00, d[d.length-2] ? 0x00 : 0x01]);
         }
-        if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { // LATCH
+        if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { 
             await resetGeral(); setTimeout(() => sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00]), 500);
         }
 
-        if (!isMidiActive) return;
+        if (!isMidiActive || isOndulacaoMode) return;
 
         if (status === 0xB0 && !keyboardModeOnly) {
             if (d[1] === 1 && d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
@@ -168,6 +167,7 @@
 
     async function handleTransitionTrigger(code) {
         currentTransIndex = code;
+        document.getElementById('disp-trans').innerText = ["Início","ParteA","ParteB","Final"][code];
         if (isInstantMode) {
             const instTargets = [{101:127,102:0,103:0,104:0},{101:0,102:127,103:0,104:0},{101:0,102:0,103:127,104:0},{101:0,102:0,103:0,104:127}][code];
             await syncHardwareInstant(instTargets);
@@ -245,22 +245,12 @@
         await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, sw1]);
         await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, sw2]);
         
-        // Correção do Modo Teclado para os canais 1-5
-        if (mode === "Natural") {
-            for(let ch of CHS_1_5) {
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
-            }
-        } else if (mode === "Baixo") {
-            for(let ch of CHS_1_5) {
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x41]);
-            }
-        } else if (mode === "Solo") {
-            for(let ch of CHS_1_5) {
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x3B]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
-            }
+        for(let ch of CHS_1_5) {
+            let trP = 0x6C, detP = 0x18;
+            if (mode === "Baixo") detP = 0x41;
+            if (mode === "Solo") trP = 0x3B;
+            await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, trP]);
+            await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, detP]);
         }
     }
 
