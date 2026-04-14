@@ -13,7 +13,11 @@
         #main-container { display: flex; width: 100vw; height: 85vh; }
         .q-display { flex: 1.2; padding: 30px; border-right: 2px solid #222; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
         .q-mixer { flex: 0.8; padding: 10px; background: var(--panel); display: flex; flex-direction: column; justify-content: center; }
-        .val-chan { font-size: 42px; font-weight: 900; color: #666; line-height: 1; text-transform: uppercase; }
+        
+        /* Display Canal Cores */
+        .val-chan { font-size: 42px; font-weight: 900; line-height: 1; text-transform: uppercase; color: #fff; }
+        .chan-off { color: var(--danger) !important; }
+        
         .val-trans { font-size: 48px; font-weight: 900; color: var(--accent); line-height: 1.1; }
         .row-time { display: flex; align-items: baseline; gap: 15px; margin-top: 10px; }
         .val-bpm { font-size: 24px; font-weight: 700; color: var(--success); }
@@ -31,7 +35,7 @@
     <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
 
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v2.0.3</h2>
+        <h2 style="color: var(--accent)">Nautilus v1.5</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -41,7 +45,7 @@
     <div id="main" class="screen">
         <div id="main-container">
             <div class="q-display">
-                <div id="disp-chan" class="val-chan">OFF</div>
+                <div id="disp-chan" class="val-chan chan-off">OFF</div>
                 <div id="disp-trans" class="val-trans">Início</div>
                 <div class="row-time">
                     <div id="disp-bpm" class="val-bpm">40 BPM</div>
@@ -118,9 +122,9 @@
 
         // --- ESCUTA MODOS DE TECLADO ---
         if (hex.includes("5D 43 1B 00 00 06")) {
-            if (hex.endsWith("01 00 00 01")) await setKeyboardMode("Baixo");
-            else if (hex.endsWith("00 00 00 01")) await setKeyboardMode("Solo");
-            else await setKeyboardMode("Natural");
+            if (hex.endsWith("01 00 00 01")) await setKeyboardMode("Baixo", true);
+            else if (hex.endsWith("00 00 00 01")) await setKeyboardMode("Solo", true);
+            else if (hex.includes("00 F7")) await setKeyboardMode("Natural", true);
             return;
         }
 
@@ -129,20 +133,22 @@
             stopOndulacao(); isInstantMode = false; isOndulacaoMode = false;
             await new Promise(r => setTimeout(r, 350));
             const chanL = document.getElementById('disp-chan');
+            chanL.className = "val-chan";
             if (channel === 6) { chanL.innerText = "Ondulação"; isMidiActive = true; isOndulacaoMode = true; startOndulacao(); }
             else if (channel === 5) { chanL.innerText = "Instantâneo"; isMidiActive = true; isInstantMode = true; await handleTransitionTrigger(kIdx); }
             else if (channel === 4) { chanL.innerText = "Transição"; isMidiActive = true; keyboardModeOnly = false; await setKeyboardMode(kMode); await syncHardwareInstant(); }
             else if (channel === 3) { chanL.innerText = "Padrão"; isMidiActive = true; keyboardModeOnly = true; currentTransIndex = 0; await setKeyboardMode(kMode); await syncHardwareInstant(); }
-            else { chanL.innerText = "OFF"; isMidiActive = false; }
+            else { chanL.innerText = "OFF"; chanL.className = "val-chan chan-off"; isMidiActive = false; }
             return;
         }
 
-        if (hex.includes("5D 6D 05 00 00 05")) await sendSysex([0x43, 0x04, 0x0B, 0x00, 0x0E, 0x00, 0x00, 0x00, d[14] ? 0x00 : 0x01]);
-        if (hex.includes("5D 6D 05 00 00 04")) await sendSysex([0x43, 0x04, 0x0A, 0x00, 0x0E, 0x00, 0x00, 0x00, d[14] ? 0x00 : 0x01]);
+        if (hex.includes("5D 6D 05 00 00 05")) await sendSysex([0x43, 0x04, 0x0B, 0x00, 0x0E, 0x00, 0x00, 0x00, d[d.length-2] ? 0x00 : 0x01]);
+        if (hex.includes("5D 6D 05 00 00 04")) await sendSysex([0x43, 0x04, 0x0A, 0x00, 0x0E, 0x00, 0x00, 0x00, d[d.length-2] ? 0x00 : 0x01]);
         if (hex.includes("5D 6D 05 00 00 03 00 00 00 01")) { await resetGeral(); setTimeout(() => sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00]), 500); }
 
         if (!isMidiActive || isOndulacaoMode) return;
 
+        // --- CORREÇÃO JOYSTICK (Byte 1 = CC, Byte 2 = Valor) ---
         if (status === 0xB0 && !keyboardModeOnly) {
             if (d[1] === 1 && d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
                 if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
@@ -154,15 +160,35 @@
         }
     }
 
-    async function setKeyboardMode(mode) {
+    async function setKeyboardMode(mode, fromNautilus = false) {
         currentKeyboardMode = mode;
         document.getElementById('disp-mode').innerText = mode;
         if (!output) return;
 
-        // --- LÓGICA DE EXCLUSIVIDADE SW1 (BAIXO) / SW2 (SOLO) ---
-        if (mode === "Baixo") {
-            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]); // Ativa SW1
-            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // Desativa SW2
+        // Previne loops se o comando veio do Nautilus
+        if (!fromNautilus) {
+            if (mode === "Baixo") {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
+            } else if (mode === "Solo") {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+            } else {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
+            }
+        }
+
+        if (mode === "Natural") {
+            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
+            for(let ch of CHS_1_5) {
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
+                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00]);
+            }
+        } else if (mode === "Baixo") {
             await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
             await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
@@ -172,8 +198,6 @@
                 await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x7F, 0x7F, 0x74]);
             }
         } else if (mode === "Solo") {
-            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]); // Ativa SW2
-            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); // Desativa SW1
             await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
             await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
@@ -181,17 +205,6 @@
                 await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
                 await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x3B]);
                 await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x0C]);
-            }
-        } else {
-            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); // Desativa SW1
-            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // Desativa SW2
-            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            for(let ch of CHS_1_5) {
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00]);
             }
         }
     }
@@ -248,7 +261,6 @@
             document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
             document.getElementById(`val-${cc}`).innerText = log;
         });
-        document.getElementById('disp-trans').innerText = ["Início","ParteA","ParteB","Final"][code];
     }
 
     function startOndulacao() {
