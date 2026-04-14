@@ -10,48 +10,40 @@
         .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
         .active { display: flex; }
         
-        /* Layout Setup */
+        /* Setup */
         #setup select, #setup button { width: 80%; max-width: 300px; padding: 15px; margin: 10px; border-radius: 8px; font-size: 16px; background: #222; color: #fff; border: 1px solid #444; }
         
-        /* Main Interface */
-        #main-container { display: flex; width: 100vw; height: 80vh; margin-top: 5px; }
-        .q-display { flex: 1.2; padding: 10px 20px; border-right: 2px solid #222; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+        /* Main Layout */
+        #main-container { display: flex; width: 100vw; height: 85vh; }
+        .q-display { flex: 1.2; padding: 20px; border-right: 2px solid #222; display: flex; flex-direction: column; justify-content: center; gap: 15px; }
         .q-mixer { flex: 0.8; padding: 10px; background: var(--panel); display: flex; flex-direction: column; justify-content: center; }
         
         /* Typography */
-        .info-label { font-size: 9px; color: #666; text-transform: uppercase; }
-        .val-trans { font-size: 42px; font-weight: 900; color: var(--accent); line-height: 1; }
+        .info-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+        .val-trans { font-size: 48px; font-weight: 900; color: var(--accent); line-height: 1; }
         .val-time { font-size: 28px; font-weight: 700; color: #fff; }
-        .val-mode { font-size: 24px; font-weight: 700; color: #ccc; }
+        .val-mode { font-size: 22px; font-weight: 700; color: #aaa; }
         
-        /* Status Bar */
-        .status-bar { padding: 8px; border-radius: 6px; text-align: center; font-size: 12px; font-weight: 900; margin-top: 10px; width: fit-content; }
-        .status-on { background: rgba(50, 215, 75, 0.2); color: var(--success); border: 1px solid var(--success); }
-        .status-off { background: rgba(255, 69, 58, 0.2); color: var(--danger); border: 1px solid var(--danger); }
-
-        /* Mixer Bars */
+        /* Mixer */
+        .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 180px; gap: 10px; }
+        .bar-outer { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 8px; }
+        .cc-value { font-size: 12px; color: var(--accent); font-family: monospace; font-weight: bold; }
+        .bar-container { width: 40px; height: 130px; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
         .bar-fill { position: absolute; bottom: 0; width: 100%; background: linear-gradient(to top, #0a84ff, #5efce8); transition: height 0.1s linear; }
-        .cc-label { font-size: 10px; color: #888; font-weight: bold; text-align: center; }
-        /* Garante que o container das barras tenha altura */
-        .mixer { display: flex; justify-content: space-around; align-items: flex-end; height: 160px; gap: 8px; margin-bottom: 5px; }
-        .bar-outer { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 5px; }
-        .bar-container { width: 35px; height: 120px; background: #000; border-radius: 4px; position: relative; overflow: hidden; border: 1px solid #333; }
-        .cc-value { font-size: 11px; color: var(--accent); font-family: monospace; font-weight: 900; min-height: 14px; }
+        .cc-label { font-size: 10px; color: #666; font-weight: bold; margin-top: 5px; }
 
-
+        .status-bar { padding: 8px 15px; border-radius: 6px; font-size: 11px; font-weight: 900; width: fit-content; margin-top: 10px; }
+        .status-on { background: rgba(50, 215, 75, 0.15); color: var(--success); border: 1px solid var(--success); }
+        .status-off { background: rgba(255, 69, 58, 0.15); color: var(--danger); border: 1px solid var(--danger); }
     </style>
 </head>
 <body>
 
-    <audio id="silent-audio" loop><source src="https://google.com"></audio>
+    <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
 
     <div id="setup" class="screen active">
-
-        
-         <!-- VERSAO AQUI -------------------------- V ---------->
-        
-        <h2 style="color: var(--accent)">Nautilus v1.6.1</h2>
-        <button id="btn-init">MIDI</button>
+        <h2 style="color: var(--accent)">Nautilus v2.0</h2>
+        <button id="btn-init">CARREGAR MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
         <button id="btn-ok" style="background: var(--success); border:none;">CONECTAR</button>
@@ -61,39 +53,23 @@
         <div id="main-container">
             <div class="q-display">
                 <div>
-                    <div class="info-label">Transição</div>
+                    <div class="info-label">Transição Ativa</div>
                     <div id="disp-trans" class="val-trans">Início</div>
                 </div>
                 <div>
-                    <div class="info-label">Tempo & Modo</div>
+                    <div class="info-label">Contagem / Modo</div>
                     <div id="disp-time" class="val-time">0.0s</div>
-                    <div id="disp-mode" class="val-mode">Natural</div>
+                    <div id="disp-mode" class="val-mode">Natural | 40 BPM</div>
                 </div>
                 <div id="txt-active" class="status-bar status-off">CONTROLE INATIVO</div>
             </div>
 
             <div class="q-mixer">
                 <div class="mixer">
-    <div class="bar-outer">
-        <div id="val-101" class="cc-value">0</div>
-        <div class="bar-container"><div id="bar101" class="bar-fill"></div></div>
-    </div>
-    <div class="bar-outer">
-        <div id="val-102" class="cc-value">0</div>
-        <div class="bar-container"><div id="bar102" class="bar-fill"></div></div>
-    </div>
-    <div class="bar-outer">
-        <div id="val-103" class="cc-value">0</div>
-        <div class="bar-container"><div id="bar103" class="bar-fill"></div></div>
-    </div>
-    <div class="bar-outer">
-        <div id="val-104" class="cc-value">0</div>
-        <div class="bar-container"><div id="bar104" class="bar-fill"></div></div>
-    </div>
-</div>    
-                <div style="display: flex; justify-content: space-around;">
-                    <span class="cc-label">CC 101</span><span class="cc-label">CC 102</span>
-                    <span class="cc-label">CC 103</span><span class="cc-label">CC 104</span>
+                    <div class="bar-outer"><div id="val-101" class="cc-value">127</div><div class="bar-container"><div id="bar101" class="bar-fill"></div></div><span class="cc-label">CC101</span></div>
+                    <div class="bar-outer"><div id="val-102" class="cc-value">0</div><div class="bar-container"><div id="bar102" class="bar-fill"></div></div><span class="cc-label">CC102</span></div>
+                    <div class="bar-outer"><div id="val-103" class="cc-value">0</div><div class="bar-container"><div id="bar103" class="bar-fill"></div></div><span class="cc-label">CC103</span></div>
+                    <div class="bar-outer"><div id="val-104" class="cc-value">0</div><div class="bar-container"><div id="bar104" class="bar-fill"></div></div><span class="cc-label">CC104</span></div>
                 </div>
             </div>
         </div>
@@ -101,18 +77,24 @@
 
 <script>
     let midiAccess = null, input = null, output = null, isMidiActive = false;
-    let currentTransition = "Início", currentKeyboardMode = "Natural", keyboardModeOnly = false;
-    let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 }, transInterval = null;
+    let currentTransition = "Início", currentTransIndex = 0, currentKeyboardMode = "Natural";
+    let keyboardModeOnly = false, isInstantMode = false;
+    let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 };
     let upLock = false, downLock = false, lastJoystickTime = 0;
-    let currentTransIndex = 0;
     
+    // BPM Control
+    let bpm = 40, lastClockTime = 0, clockCount = 0, lastClockReceived = 0;
+    
+    // Ondulação
+    let ondulacaoInterval = null, ondulacaoVals = { 101: 120, 102: 90, 103: 60, 104: 30 }, ondulacaoDirs = { 101: 1, 102: 1, 103: 1, 104: 1 };
+
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
     const CHS_1_5 = [0x00, 0x01, 0x02, 0x03, 0x04];
 
-    // Worker para manter timers em segundo plano
     const timerWorkerCode = `let t = null; self.onmessage = e => { if(e.data.action==='start'){ t=setInterval(()=>self.postMessage('tick'),e.data.interval)} else clearInterval(t); }`;
     const timerWorker = new Worker(URL.createObjectURL(new Blob([timerWorkerCode], {type: 'text/javascript'})));
 
+    // Inicialização MIDI
     document.getElementById('btn-init').onclick = async () => {
         try {
             midiAccess = await navigator.requestMIDIAccess({ sysex: true });
@@ -120,8 +102,7 @@
             i.innerHTML = ""; o.innerHTML = "";
             midiAccess.inputs.forEach(p => i.add(new Option(p.name, p.id)));
             midiAccess.outputs.forEach(p => o.add(new Option(p.name, p.id)));
-            if ('wakeLock' in navigator) navigator.wakeLock.request('screen');
-        } catch(e) { alert("Erro ao acessar MIDI: " + e); }
+        } catch(e) { alert("MIDI erro: " + e); }
     };
 
     document.getElementById('btn-ok').onclick = () => {
@@ -132,245 +113,198 @@
             document.getElementById('setup').classList.remove('active');
             document.getElementById('main').classList.add('active');
             document.getElementById('silent-audio').play();
+            if ('wakeLock' in navigator) navigator.wakeLock.request('screen');
         }
     };
 
     async function sendSysex(data) {
         if (!output) return;
         output.send([...SYSEX_HDR, ...data, 0xF7]);
-        await new Promise(r => setTimeout(r, 12));
+        await new Promise(r => setTimeout(r, 10));
     }
 
     async function setStatus(active) {
         isMidiActive = active;
         const el = document.getElementById('txt-active');
-        const modeTxt = keyboardModeOnly ? " (TECLADO)" : " (COMPLETO)";
-        el.innerText = active ? "CONTROLE ATIVO" + modeTxt : "CONTROLE INATIVO";
+        el.innerText = active ? "CONTROLE ATIVO" : "CONTROLE INATIVO";
         el.className = `status-bar ${active ? 'status-on' : 'status-off'}`;
-        document.querySelector('.q-mixer').style.opacity = (active && !keyboardModeOnly) ? "1" : "0.3";
-        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, active ? 0x01 : 0x00]);
     }
 
- 
-    async function updateChannelMutes(code) {
-    if (code === 0 || code === 1) { // Transição 1 e 2
-        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]); // Ch 6 Unmute
-        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]); // Ch 7 Mute
-    } else if (code === 2 || code === 3) { // Transição 3 e 4
-        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]); // Ch 6 Mute
-        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]); // Ch 7 Unmute
-    }
-    }
-
-
-    async function syncHardwareInstant() {
-    const code = currentTransIndex;
-    const mode = currentKeyboardMode;
-
-    // 1. Cena (Transição)
-    await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
-
-    // 2. Modos de Teclado e SWs
-    if (mode === "Baixo") {
-        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]); // SW1 ON
-    } else if (mode === "Solo") {
-        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]); // SW2 ON
-    } else { // Natural
-        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); // SW1 OFF
-        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // SW2 OFF
-    }
-
-    // 3. Mutes dos Canais 6 e 7
-    await updateChannelMutes(code);
-
-    // 4. Volumes CC (Instantâneo)
-    let targets = {};
-    if (code === 0) targets = {101:127, 102:0, 103:0, 104:0};
-    else if (code === 1) targets = {101:115, 102:115, 103:0, 104:0};
-    else if (code === 2) targets = {101:105, 102:105, 103:80, 104:50};
-    else if (code === 3) targets = {101:80, 102:80, 103:127, 104:127};
-
-    Object.keys(targets).forEach(cc => {
-        let logVal = Math.round(127 * Math.pow(targets[cc] / 127, 1.5));
-        output.send([0xB0, parseInt(cc), logVal]);
-        ccLevels[cc] = targets[cc];
-        document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
-        document.getElementById(`val-${cc}`).innerText = logVal;
-    });
-
-    document.getElementById('disp-trans').innerText = ["Início", "ParteA", "ParteB", "Final"][code];
-    document.getElementById('disp-mode').innerText = mode;
-}
-
-
-
+    // Gerenciador de Mensagens
     async function handleMidi(e) {
         const d = Array.from(e.data);
         const status = d[0] & 0xF0, channel = d[0] & 0x0F, now = Date.now();
         const hex = d.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
-         // --- CONTINUIDADE / PROGRAM CHANGE (0xC0) ---
-              if (status === 0xC0) {
-            const keepTrans = currentTransIndex;
-            const keepMode = currentKeyboardMode;
-
-            // Mantém a UI estável enquanto o hardware carrega
-            document.getElementById('disp-trans').innerText = ["Início", "ParteA", "ParteB", "Final"][keepTrans];
-            document.getElementById('disp-mode').innerText = keepMode;
-
-            await new Promise(r => setTimeout(r, 350)); 
-            
-            if (channel === 4) { // CANAL 5: TUDO MANTIDO
-                keyboardModeOnly = false;
-                await setStatus(true);
-                currentTransIndex = keepTrans;
-                currentKeyboardMode = keepMode;
-                
-                // Primeiro aplicamos os parâmetros de canal (Mutes/Volumes)
-                await setKeyboardMode(currentKeyboardMode); 
-                // Depois sincronizamos os botões SW e Cena
-                await syncHardwareInstant(); 
-            } 
-            else if (channel === 3) { // CANAL 4: RESET TRANSIÇÃO
-                keyboardModeOnly = true;
-                await setStatus(true);
-                currentTransIndex = 0; 
-                currentKeyboardMode = keepMode;
-                await setKeyboardMode(currentKeyboardMode);
-                await syncHardwareInstant();
-            } 
-            else { 
-                await setStatus(false);
-                currentTransIndex = 0;
-                currentKeyboardMode = "Natural";
-                await syncHardwareInstant();
+        // 1. MIDI CLOCK (BPM)
+        if (d[0] === 0xF8) {
+            const cNow = performance.now(); clockCount++;
+            if (clockCount >= 24) {
+                if (lastClockTime > 0) bpm = 60000 / (cNow - lastClockTime);
+                lastClockTime = cNow; clockCount = 0; lastClockReceived = now;
+                document.getElementById('disp-mode').innerText = `${currentKeyboardMode} | ${Math.round(bpm)} BPM`;
             }
             return;
         }
 
+        // 2. PROGRAM CHANGE (C0) - Continuidade
+        if (status === 0xC0) {
+            const keepTrans = currentTransIndex;
+            const keepMode = currentKeyboardMode;
+            stopOndulacao(); isInstantMode = false;
+            await new Promise(r => setTimeout(r, 350));
+            
+            if (channel === 6) { // CANAL 7 - Ondulação
+                keyboardModeOnly = false; await setStatus(true);
+                startOndulacao();
+            } else if (channel === 5) { // CANAL 6 - Instantâneo
+                keyboardModeOnly = false; await setStatus(true);
+                isInstantMode = true;
+                await handleTransitionTrigger(keepTrans, false);
+            } else if (channel === 4) { // CANAL 5 - Completo
+                keyboardModeOnly = false; await setStatus(true);
+                await setKeyboardMode(keepMode); await syncHardwareInstant();
+            } else if (channel === 3) { // CANAL 4 - Teclado
+                keyboardModeOnly = true; await setStatus(true);
+                currentTransIndex = 0; await setKeyboardMode(keepMode); await syncHardwareInstant();
+            } else { await setStatus(false); }
+            return;
+        }
 
+        // 3. BOTÕES PAINEL (Sysex In)
+        if (sysexMatch(hex, "6D 05 00 00 05")) { // DRUM
+            await sendSysex([0x43, 0x04, 0x0B, 0x00, 0x0E, 0x00, 0x00, 0x00, d[d.length-2] ? 0x00 : 0x01]);
+        }
+        if (sysexMatch(hex, "6D 05 00 00 04")) { // ARP
+            await sendSysex([0x43, 0x04, 0x0A, 0x00, 0x0E, 0x00, 0x00, 0x00, d[d.length-2] ? 0x00 : 0x01]);
+        }
+        if (sysexMatch(hex, "6D 05 00 00 03 00 00 00 01")) { // LATCH (Reset)
+            await resetGeral(); 
+            setTimeout(() => sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00]), 500);
+        }
 
         if (!isMidiActive) return;
 
-        // --- JOYSTICK (Bloqueado se for keyboardModeOnly) ---
+        // 4. JOYSTICK
         if (status === 0xB0 && !keyboardModeOnly) {
-            if (d[1] === 1) { // Modulation Y+
-                if (d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
-                    if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
-                    upLock = true; lastJoystickTime = now;
-                } else if (d[2] < 15) upLock = false;
-            }
-            if (d[1] === 2) { // Breath Y-
-                if (d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
-                    if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
-                    downLock = true; lastJoystickTime = now;
-                } else if (d[2] < 15) downLock = false;
-            }
-        }
-
-        // Sincronia de Gatilho e Modos via Sysex
-        if (!keyboardModeOnly && hex.includes("5D 6D 05 00 00 01 00 00 00")) handleTransitionTrigger(d[d.length - 2], true);
-        if (hex.includes("5D 43 1B 00 00 06")) {
-            if (d[11] === 1 && d[14] === 1) setKeyboardMode("Baixo");
-            else if (d[11] === 0 && d[14] === 1) setKeyboardMode("Solo");
-            else setKeyboardMode("Natural");
+            if (d[1] === 1 && d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
+                if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
+                upLock = true; lastJoystickTime = now;
+            } else if (d[1] === 2 && d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
+                if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
+                downLock = true; lastJoystickTime = now;
+            } else if (d[2] < 15) { upLock = false; downLock = false; }
         }
     }
 
+    function sysexMatch(hex, pattern) { return hex.includes(pattern); }
+
     async function handleTransitionTrigger(code, skipSysex = false) {
-        if (keyboardModeOnly && !skipSysex) {
-            currentTransIndex = code;
-            document.getElementById('disp-trans').innerText = ["Início","ParteA","ParteB","Final"][code];
+        currentTransIndex = code;
+        const targets = [
+            {101:127, 102:0, 103:0, 104:0}, {101:115, 102:115, 103:0, 104:0},
+            {101:105, 102:105, 103:80, 104:50}, {101:80, 102:80, 103:127, 104:127}
+        ][code];
+
+        if (isInstantMode) {
+            const instTargets = [{101:127,102:0,103:0,104:0},{101:0,102:127,103:0,104:0},{101:0,102:0,103:127,104:0},{101:0,102:0,103:0,104:127}][code];
+            await syncHardwareInstant(instTargets);
             return;
         }
-        if (!skipSysex) await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
-        
-        const old = currentTransition;
-        let targets = {}, next = "";
-        if (code === 0) { next = "Início"; targets = {101:127, 102:0, 103:0, 104:0}; }
-        else if (code === 1) { next = "ParteA"; targets = {101:115, 102:115, 103:0, 104:0}; }
-        else if (code === 2) { next = "ParteB"; targets = {101:105, 102:105, 103:80, 104:50}; }
-        else if (code === 3) { next = "Final"; targets = {101:80, 102:80, 103:127, 104:127}; }
 
-        const isLow = (t) => t === "Início" || t === "ParteA";
-        if (isLow(old) && !isLow(next)) {
-            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
-            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
-        } else if (!isLow(old) && isLow(next)) {
-            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x01]);
-            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00]);
-        }
-        currentTransition = next; currentTransIndex = code;
-        document.getElementById('disp-trans').innerText = next;
+        if (!skipSysex) await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
+        await updateChannelMutes(code);
         runTransition(targets);
     }
 
+    async function updateChannelMutes(code) {
+        const m6 = (code < 2) ? 0x00 : 0x01; // Ch 6 unmuted em 0,1
+        const m7 = (code < 2) ? 0x01 : 0x00; // Ch 7 unmuted em 2,3
+        await sendSysex([0x43, 0x04, 0x05, 0x00, 0x0E, 0x00, 0x00, 0x00, m6]);
+        await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, m7]);
+    }
+
     function runTransition(targets) {
-    timerWorker.postMessage({ action: 'stop' });
-    let step = 0, steps = 40, startVals = { ...ccLevels };
-    
-    timerWorker.onmessage = () => {
-        step++; const ratio = step/steps;
-        Object.keys(targets).forEach(cc => {
-            let val = startVals[cc] + (targets[cc] - startVals[cc]) * ratio;
-            ccLevels[cc] = val;
-            
-            // Curva Logarítmica para Volume (Percepção humana)
-            let logVal = Math.round(127 * Math.pow(val / 127, 1.5));
-            
-            output.send([0xB0, parseInt(cc), logVal]);
-            
-            // Atualiza Barra e Valor Numérico
-            document.getElementById(`bar${cc}`).style.height = (logVal / 127 * 100) + '%';
-            document.getElementById(`val-${cc}`).innerText = logVal;
-        });
+        timerWorker.postMessage({ action: 'stop' });
+        const duration = (bpm / 10) * 1000;
+        let step = 0, steps = duration / 50, startVals = { ...ccLevels };
+        timerWorker.onmessage = () => {
+            step++; const ratio = Math.min(step/steps, 1);
+            Object.keys(targets).forEach(cc => {
+                let v = startVals[cc] + (targets[cc] - startVals[cc]) * ratio;
+                ccLevels[cc] = v;
+                let log = Math.round(127 * Math.pow(v / 127, 1.5));
+                output.send([0xB0, parseInt(cc), log]);
+                document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
+                document.getElementById(`val-${cc}`).innerText = log;
+            });
+            document.getElementById('disp-time').innerText = `${((duration - (step*50))/1000).toFixed(1)}s`;
+            if (step >= steps) timerWorker.postMessage({ action: 'stop' });
+        };
+        timerWorker.postMessage({ action: 'start', interval: 50 });
+    }
+
+    async function syncHardwareInstant(customTargets = null) {
+        const code = currentTransIndex;
+        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
+        await updateChannelMutes(code);
         
-        document.getElementById('disp-time').innerText = `${((steps - step) * 0.1).toFixed(1)}s`;
-        if (step >= steps) timerWorker.postMessage({ action: 'stop' });
-    };
-    timerWorker.postMessage({ action: 'start', interval: 100 });
-}
+        let targets = customTargets || [
+            {101:127, 102:0, 103:0, 104:0}, {101:115, 102:115, 103:0, 104:0},
+            {101:105, 102:105, 103:80, 104:50}, {101:80, 102:80, 103:127, 104:127}
+        ][code];
+
+        Object.keys(targets).forEach(cc => {
+            let log = Math.round(127 * Math.pow(targets[cc] / 127, 1.5));
+            output.send([0xB0, parseInt(cc), log]);
+            ccLevels[cc] = targets[cc];
+            document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
+            document.getElementById(`val-${cc}`).innerText = log;
+        });
+        document.getElementById('disp-trans').innerText = ["Início","ParteA","ParteB","Final"][code];
+    }
+
+    function startOndulacao() {
+        stopOndulacao();
+        ondulacaoInterval = setInterval(() => {
+            let step = (40 / bpm) * 5;
+            Object.keys(ondulacaoVals).forEach(cc => {
+                ondulacaoVals[cc] += (step * ondulacaoDirs[cc]);
+                if (ondulacaoVals[cc] >= 125 || ondulacaoVals[cc] <= 30) ondulacaoDirs[cc] *= -1;
+                let log = Math.round(127 * Math.pow(ondulacaoVals[cc] / 127, 1.5));
+                output.send([0xB0, parseInt(cc), log]);
+                document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
+                document.getElementById(`val-${cc}`).innerText = log;
+            });
+        }, 100);
+    }
+
+    function stopOndulacao() { if(ondulacaoInterval) clearInterval(ondulacaoInterval); ondulacaoInterval = null; }
 
     async function setKeyboardMode(mode) {
         currentKeyboardMode = mode;
-        document.getElementById('disp-mode').innerText = mode;
-        if (mode === "Natural") {
-            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            for(let ch of CHS_1_5) {
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00]);
-            }
-        } else if (mode === "Baixo") {
-            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
-            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            for(let ch of CHS_1_5) {
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x6C]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x41]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x7F, 0x7F, 0x74]);
-            }
+        document.getElementById('disp-mode').innerText = `${mode} | ${Math.round(bpm)} BPM`;
+        if (mode === "Baixo") {
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]); // SW1 ON
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // SW2 OFF
         } else if (mode === "Solo") {
-            await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
-            await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
-            await sendSysex([0x43, 0x04, 0x06, 0x00, 0x23, 0x00, 0x00, 0x00, 0x01]);
-            for(let ch of CHS_1_5) {
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1F, 0x00, 0x00, 0x00, 0x18]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x1D, 0x00, 0x00, 0x00, 0x3B]);
-                await sendSysex([0x43, 0x04, ch, 0x00, 0x16, 0x00, 0x00, 0x00, 0x0C]);
-            }
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); 
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]); // SW2 ON
+        } else {
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
         }
     }
 
     async function resetGeral() {
-        timerWorker.postMessage({ action: 'stop' });
-        document.getElementById('disp-time').innerText = "0.0s";
+        stopOndulacao(); timerWorker.postMessage({ action: 'stop' });
         await sendSysex([0x43, 0x0F, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x01]);
-        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01]);
-        await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
+        currentTransIndex = 0; await syncHardwareInstant();
     }
+
+    // Monitor de perda de Clock
+    setInterval(() => { if (Date.now() - lastClockReceived > 2000) bpm = 40; }, 2000);
+
 </script>
 </body>
 </html>
