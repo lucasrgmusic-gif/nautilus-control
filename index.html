@@ -30,7 +30,7 @@
 <body>
     <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v2.2</h2>
+        <h2 style="color: var(--accent)">Nautilus v2.2.1</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -116,7 +116,6 @@
             return;
         }
 
-        // --- ESCUTA MODOS DE TECLADO (BOTÕES NAUTILUS) ---
         if (hex.includes("5D 43 1B 00 00 06")) {
             if (hex.includes("06 01 00 00 01")) await setKeyboardMode("Baixo", true);
             else if (hex.includes("06 00 00 00 01")) await setKeyboardMode("Solo", true);
@@ -130,7 +129,12 @@
             await new Promise(r => setTimeout(r, 350));
             const chanL = document.getElementById('disp-chan');
             chanL.className = "val-chan";
-            if (channel === 6) { chanL.innerText = "Ondulação"; isMidiActive = true; isOndulacaoMode = true; startOndulacao(); }
+            if (channel === 6) { 
+                chanL.innerText = "Ondulação"; isMidiActive = true; isOndulacaoMode = true; 
+                // Reinicia valores da ondulação do zero conforme solicitado
+                ondulacaoVals = { 101: 120, 102: 90, 103: 60, 104: 30 };
+                startOndulacao(); 
+            }
             else if (channel === 5) { chanL.innerText = "Instantâneo"; isMidiActive = true; isInstantMode = true; await handleTransitionTrigger(kIdx); }
             else if (channel === 4) { chanL.innerText = "Transição"; isMidiActive = true; keyboardModeOnly = false; await setKeyboardMode(kMode); await syncHardwareInstant(); }
             else if (channel === 3) { chanL.innerText = "Padrão"; isMidiActive = true; keyboardModeOnly = true; currentTransIndex = 0; await setKeyboardMode(kMode); await syncHardwareInstant(); }
@@ -144,32 +148,33 @@
 
         if (!isMidiActive || isOndulacaoMode) return;
 
-        // --- JOYSTICK (CORREÇÃO DE ÍNDICE D[1] E D[2]) ---
         if (status === 0xB0 && !keyboardModeOnly) {
-            const ccNum = d[1], ccVal = d[2];
-            if (ccNum === 1 && ccVal >= 40 && !upLock && (now - lastJoystickTime > 300)) {
+            if (d[1] === 1 && d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
                 if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
                 upLock = true; lastJoystickTime = now;
-            } else if (ccNum === 2 && ccVal >= 40 && !downLock && (now - lastJoystickTime > 300)) {
+            } else if (d[1] === 2 && d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
                 if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
                 downLock = true; lastJoystickTime = now;
-            } else if (ccVal < 15) { upLock = false; downLock = false; }
+            } else if (d[2] < 15) { upLock = false; downLock = false; }
         }
     }
 
     async function setKeyboardMode(mode, fromNautilus = false) {
+        const oldMode = currentKeyboardMode;
         currentKeyboardMode = mode;
         document.getElementById('disp-mode').innerText = mode;
         if (!output) return;
 
         if (!fromNautilus) {
-            if (mode === "Baixo") {
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
-            } else if (mode === "Solo") {
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
-            } else {
+            if (oldMode === "Baixo" && mode === "Solo") {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); // Desativa SW1 (Baixo)
+            } else if (oldMode === "Solo" && mode === "Baixo") {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // Desativa SW2 (Solo)
+            }
+            
+            if (mode === "Baixo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
+            else if (mode === "Solo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
+            else {
                 await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
                 await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
             }
@@ -221,7 +226,8 @@
 
     function runTransition(targets) {
         timerWorker.postMessage({ action: 'stop' });
-        const duration = (bpm / 10) * 1000;
+        // Ajuste solicitado: BPM * 50ms (2x mais rápido que BPM * 100ms)
+        const duration = bpm * 50;
         let step = 0, steps = duration / 50, startVals = { ...ccLevels };
         timerWorker.onmessage = () => {
             step++; const ratio = Math.min(step/steps, 1);
@@ -233,7 +239,9 @@
                 document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
                 document.getElementById(`val-${cc}`).innerText = log;
             });
-            document.getElementById('disp-time').innerText = `${((duration - (step*50))/1000).toFixed(1)}s`;
+            // Fix para evitar o "zero negativo" ou traços indesejados
+            let remaining = Math.max(0, (duration - (step * 50)) / 1000);
+            document.getElementById('disp-time').innerText = `${remaining.toFixed(1)}s`;
             if (step >= steps) timerWorker.postMessage({ action: 'stop' });
         };
         timerWorker.postMessage({ action: 'start', interval: 50 });
