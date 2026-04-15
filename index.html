@@ -169,24 +169,20 @@
         if (!fromNautilus) {
             
             if (hex.includes("5D 43 1B 00 00 06")) {
-    // Se você ATIVOU o Baixo (SW1)
-    if (hex.includes("06 01 00 00 01")) {
-        await setKeyboardMode("Baixo", true);
-        // Desliga o Solo (SW2) preventivamente
-        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); 
-    } 
-    // Se você ATIVOU o Solo (SW2)
-    else if (hex.includes("06 00 00 00 01")) {
-        await setKeyboardMode("Solo", true);
-        // Desliga o Baixo (SW1) preventivamente
-        await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
-    } 
-    // Se você DESATIVOU o botão que estava aceso
-    else if (hex.includes("00 F7")) {
-        await setKeyboardMode("Natural", true);
-    }
-    return;
-}
+            // Se você ATIVOU o Baixo (SW1)
+                if (hex.includes("06 01 00 00 01")) {
+                    await setKeyboardMode("Baixo", true);
+                    await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); 
+                } 
+                else if (hex.includes("06 00 00 00 01")) {
+                    await setKeyboardMode("Solo", true);
+                    await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+                } 
+                else if (hex.includes("00 F7")) {
+                    await setKeyboardMode("Natural", true);
+                }
+            return;
+            }
 
         // --- RESTANTE DOS COMANDOS DE CANAIS 1-7 ---
         if (mode === "Natural") {
