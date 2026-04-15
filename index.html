@@ -165,21 +165,29 @@
         document.getElementById('disp-mode').innerText = mode;
         if (!output) return;
 
+        // --- LÓGICA DE EXCLUSIVIDADE CORRIGIDA ---
         if (!fromNautilus) {
+            // Se mudar de Baixo para Solo, desliga o Baixo (SW1)
             if (oldMode === "Baixo" && mode === "Solo") {
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); // Desativa SW1 (Baixo)
-            } else if (oldMode === "Solo" && mode === "Baixo") {
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); // Desativa SW2 (Solo)
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]); 
+            } 
+            // Se mudar de Solo para Baixo, desliga o Solo (SW2)
+            else if (oldMode === "Solo" && mode === "Baixo") {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); 
             }
-            
-            if (mode === "Baixo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
-            else if (mode === "Solo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
-            else {
+
+            // Ativa o novo modo
+            if (mode === "Baixo") {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
+            } else if (mode === "Solo") {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
+            } else { // Natural desativa ambos
                 await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
                 await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
             }
         }
 
+        // --- RESTANTE DOS COMANDOS DE CANAIS 1-7 ---
         if (mode === "Natural") {
             await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
@@ -267,13 +275,17 @@
         await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, m7]);
     }
 
-    function startOndulacao() {
+     function startOndulacao() {
         stopOndulacao();
         ondulacaoInterval = setInterval(() => {
             let step = (40 / bpm) * 5;
             Object.keys(ondulacaoVals).forEach(cc => {
                 ondulacaoVals[cc] += (step * ondulacaoDirs[cc]);
-                if (ondulacaoVals[cc] >= 125 || ondulacaoVals[cc] <= 30) ondulacaoDirs[cc] *= -1;
+                
+                // Limites: Máximo 125 e Mínimo 40
+                if (ondulacaoVals[cc] >= 125) { ondulacaoVals[cc] = 125; ondulacaoDirs[cc] = -1; }
+                if (ondulacaoVals[cc] <= 40) { ondulacaoVals[cc] = 40; ondulacaoDirs[cc] = 1; }
+                
                 let log = Math.round(127 * Math.pow(ondulacaoVals[cc] / 127, 1.5));
                 if (output) output.send([0xB0, parseInt(cc), log]);
                 document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
