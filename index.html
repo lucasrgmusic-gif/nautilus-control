@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nautilus v1.5 Final</title>
+    <title>Nautilus v1.5 Final Pro</title>
     <style>
         :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
         html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100%; width: 100%; position: fixed; touch-action: none; }
@@ -30,7 +30,7 @@
 <body>
     <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v2.3</h2>
+        <h2 style="color: var(--accent)">Nautilus v2.4</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -117,9 +117,15 @@
         }
 
         if (hex.includes("5D 43 1B 00 00 06")) {
-            if (hex.includes("06 01 00 00 01")) await setKeyboardMode("Baixo", true);
-            else if (hex.includes("06 00 00 00 01")) await setKeyboardMode("Solo", true);
-            else if (hex.includes("00 F7")) await setKeyboardMode("Natural", true);
+            if (hex.includes("06 01 00 00 01")) {
+                await setKeyboardMode("Baixo", true);
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
+            } else if (hex.includes("06 00 00 00 01")) {
+                await setKeyboardMode("Solo", true);
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+            } else if (hex.includes("00 F7")) {
+                await setKeyboardMode("Natural", true);
+            }
             return;
         }
 
@@ -131,9 +137,7 @@
             chanL.className = "val-chan";
             if (channel === 6) { 
                 chanL.innerText = "Ondulação"; isMidiActive = true; isOndulacaoMode = true; 
-                // Reinicia valores da ondulação do zero conforme solicitado
-                ondulacaoVals = { 101: 120, 102: 90, 103: 60, 104: 30 };
-                startOndulacao(); 
+                ondulacaoVals = { 101: 120, 102: 90, 103: 60, 104: 40 }; startOndulacao(); 
             }
             else if (channel === 5) { chanL.innerText = "Instantâneo"; isMidiActive = true; isInstantMode = true; await handleTransitionTrigger(kIdx); }
             else if (channel === 4) { chanL.innerText = "Transição"; isMidiActive = true; keyboardModeOnly = false; await setKeyboardMode(kMode); await syncHardwareInstant(); }
@@ -149,13 +153,14 @@
         if (!isMidiActive || isOndulacaoMode) return;
 
         if (status === 0xB0 && !keyboardModeOnly) {
-            if (d[1] === 1 && d[2] >= 40 && !upLock && (now - lastJoystickTime > 300)) {
+            const ccNum = d[1], ccVal = d[2];
+            if (ccNum === 1 && ccVal >= 40 && !upLock && (now - lastJoystickTime > 300)) {
                 if (currentTransIndex < 3) handleTransitionTrigger(currentTransIndex + 1);
                 upLock = true; lastJoystickTime = now;
-            } else if (d[1] === 2 && d[2] >= 40 && !downLock && (now - lastJoystickTime > 300)) {
+            } else if (ccNum === 2 && ccVal >= 40 && !downLock && (now - lastJoystickTime > 300)) {
                 if (currentTransIndex > 0) handleTransitionTrigger(currentTransIndex - 1);
                 downLock = true; lastJoystickTime = now;
-            } else if (d[2] < 15) { upLock = false; downLock = false; }
+            } else if (ccVal < 15) { upLock = false; downLock = false; }
         }
     }
 
@@ -165,26 +170,18 @@
         document.getElementById('disp-mode').innerText = mode;
         if (!output) return;
 
-        // --- LÓGICA DE EXCLUSIVIDADE CORRIGIDA ---
         if (!fromNautilus) {
-            
-            if (hex.includes("5D 43 1B 00 00 06")) {
-            // Se você ATIVOU o Baixo (SW1)
-                if (hex.includes("06 01 00 00 01")) {
-                    await setKeyboardMode("Baixo", true);
-                    await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]); 
-                } 
-                else if (hex.includes("06 00 00 00 01")) {
-                    await setKeyboardMode("Solo", true);
-                    await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
-                } 
-                else if (hex.includes("00 F7")) {
-                    await setKeyboardMode("Natural", true);
-                }
-            return;
-            }
+            if (oldMode === "Baixo" && mode === "Solo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+            else if (oldMode === "Solo" && mode === "Baixo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
 
-        // --- RESTANTE DOS COMANDOS DE CANAIS 1-7 ---
+            if (mode === "Baixo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
+            else if (mode === "Solo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
+            else {
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
+            }
+        }
+
         if (mode === "Natural") {
             await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
@@ -231,7 +228,6 @@
 
     function runTransition(targets) {
         timerWorker.postMessage({ action: 'stop' });
-        // Ajuste solicitado: BPM * 50ms (2x mais rápido que BPM * 100ms)
         const duration = bpm * 50;
         let step = 0, steps = duration / 50, startVals = { ...ccLevels };
         timerWorker.onmessage = () => {
@@ -244,9 +240,8 @@
                 document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
                 document.getElementById(`val-${cc}`).innerText = log;
             });
-            // Fix para evitar o "zero negativo" ou traços indesejados
-            let remaining = Math.max(0, (duration - (step * 50)) / 1000);
-            document.getElementById('disp-time').innerText = `${remaining.toFixed(1)}s`;
+            let rem = Math.max(0, (duration - (step * 50)) / 1000);
+            document.getElementById('disp-time').innerText = rem.toFixed(1) + "s";
             if (step >= steps) timerWorker.postMessage({ action: 'stop' });
         };
         timerWorker.postMessage({ action: 'start', interval: 50 });
@@ -272,17 +267,14 @@
         await sendSysex([0x43, 0x04, 0x06, 0x00, 0x0E, 0x00, 0x00, 0x00, m7]);
     }
 
-     function startOndulacao() {
+    function startOndulacao() {
         stopOndulacao();
         ondulacaoInterval = setInterval(() => {
             let step = (40 / bpm) * 5;
             Object.keys(ondulacaoVals).forEach(cc => {
                 ondulacaoVals[cc] += (step * ondulacaoDirs[cc]);
-                
-                // Limites: Máximo 125 e Mínimo 40
                 if (ondulacaoVals[cc] >= 125) { ondulacaoVals[cc] = 125; ondulacaoDirs[cc] = -1; }
                 if (ondulacaoVals[cc] <= 40) { ondulacaoVals[cc] = 40; ondulacaoDirs[cc] = 1; }
-                
                 let log = Math.round(127 * Math.pow(ondulacaoVals[cc] / 127, 1.5));
                 if (output) output.send([0xB0, parseInt(cc), log]);
                 document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
