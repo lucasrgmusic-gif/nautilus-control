@@ -30,7 +30,7 @@
 <body>
     <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v2.4</h2>
+        <h2 style="color: var(--accent)">Nautilus v2.5</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -65,7 +65,7 @@
     let keyboardModeOnly = false, isInstantMode = false, isOndulacaoMode = false;
     let ccLevels = { 101: 127, 102: 0, 103: 0, 104: 0 }, bpm = 40;
     let clockCount = 0, lastClockTime = 0, lastClockReceived = 0;
-    let ondulacaoInterval = null, ondulacaoVals = { 101: 120, 102: 90, 103: 60, 104: 30 }, ondulacaoDirs = { 101: 1, 102: 1, 103: 1, 104: 1 };
+    let ondulacaoInterval = null, ondulacaoVals = { 101: 80, 102: 80, 103: 80, 104: 80 }, ondulacaoDirs = { 101: 1, 102: -1, 103: 1, 104: -1 };
     let upLock = false, downLock = false, lastJoystickTime = 0;
 
     const SYSEX_HDR = [0xF0, 0x42, 0x30, 0x00, 0x01, 0x5D];
@@ -116,16 +116,11 @@
             return;
         }
 
-        if (hex.includes("5D 43 1B 00 00 06")) {
-            if (hex.includes("06 01 00 00 01")) {
-                await setKeyboardMode("Baixo", true);
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
-            } else if (hex.includes("06 00 00 00 01")) {
-                await setKeyboardMode("Solo", true);
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
-            } else if (hex.includes("00 F7")) {
-                await setKeyboardMode("Natural", true);
-            }
+        // --- ESCUTA MODOS DE TECLADO (BLOQUEADO SE OFF) ---
+        if (hex.includes("5D 43 1B 00 00 06") && isMidiActive) {
+            if (hex.includes("06 01 00 00 01")) await setKeyboardMode("Baixo", true);
+            else if (hex.includes("06 00 00 00 01")) await setKeyboardMode("Solo", true);
+            else if (hex.includes("00 F7")) await setKeyboardMode("Natural", true);
             return;
         }
 
@@ -137,7 +132,8 @@
             chanL.className = "val-chan";
             if (channel === 6) { 
                 chanL.innerText = "Ondulação"; isMidiActive = true; isOndulacaoMode = true; 
-                ondulacaoVals = { 101: 120, 102: 90, 103: 60, 104: 40 }; startOndulacao(); 
+                ondulacaoVals = { 101: 80, 102: 80, 103: 80, 104: 80 }; 
+                startOndulacao(); 
             }
             else if (channel === 5) { chanL.innerText = "Instantâneo"; isMidiActive = true; isInstantMode = true; await handleTransitionTrigger(kIdx); }
             else if (channel === 4) { chanL.innerText = "Transição"; isMidiActive = true; keyboardModeOnly = false; await setKeyboardMode(kMode); await syncHardwareInstant(); }
@@ -165,6 +161,7 @@
     }
 
     async function setKeyboardMode(mode, fromNautilus = false) {
+        if (!isMidiActive) return; // Trava para impedir alteração no modo OFF
         const oldMode = currentKeyboardMode;
         currentKeyboardMode = mode;
         document.getElementById('disp-mode').innerText = mode;
@@ -270,11 +267,18 @@
     function startOndulacao() {
         stopOndulacao();
         ondulacaoInterval = setInterval(() => {
-            let step = (40 / bpm) * 5;
+            let baseStep = (40 / bpm) * 5;
+            
             Object.keys(ondulacaoVals).forEach(cc => {
-                ondulacaoVals[cc] += (step * ondulacaoDirs[cc]);
-                if (ondulacaoVals[cc] >= 125) { ondulacaoVals[cc] = 125; ondulacaoDirs[cc] = -1; }
+                // CC 103 e 104 andam a 1/3 da velocidade (baseStep / 3)
+                let actualStep = (cc == 103 || cc == 104) ? baseStep / 3 : baseStep;
+                
+                ondulacaoVals[cc] += (actualStep * ondulacaoDirs[cc]);
+                
+                // Limites rigorosos entre 40 e 120
+                if (ondulacaoVals[cc] >= 120) { ondulacaoVals[cc] = 120; ondulacaoDirs[cc] = -1; }
                 if (ondulacaoVals[cc] <= 40) { ondulacaoVals[cc] = 40; ondulacaoDirs[cc] = 1; }
+                
                 let log = Math.round(127 * Math.pow(ondulacaoVals[cc] / 127, 1.5));
                 if (output) output.send([0xB0, parseInt(cc), log]);
                 document.getElementById(`bar${cc}`).style.height = (log/127*100)+'%';
