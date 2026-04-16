@@ -118,11 +118,14 @@
 
         // --- ESCUTA MODOS DE TECLADO (BLOQUEADO SE OFF) ---
         if (hex.includes("5D 43 1B 00 00 06") && isMidiActive) {
-            if (hex.includes("06 01 00 00 01")) await setKeyboardMode("Baixo", true);
-            else if (hex.includes("06 00 00 00 01")) await setKeyboardMode("Solo", true);
-            else if (hex.includes("00 F7")) await setKeyboardMode("Natural", true);
-            return;
+        if (hex.includes("06 01 00 00 01")) await setKeyboardMode("Baixo", true);
+        else if (hex.includes("06 00 00 00 01")) await setKeyboardMode("Solo", true);
+        else if (hex.includes("06 01 00 00 00") || hex.includes("06 00 00 00 00")) {
+             // Se um botão foi desligado e o outro está apagado, volta ao Natural
+             await setKeyboardMode("Natural", true);
         }
+        return;
+    }
 
         if (status === 0xC0) {
             const kIdx = currentTransIndex, kMode = currentKeyboardMode;
@@ -161,24 +164,30 @@
     }
 
     async function setKeyboardMode(mode, fromNautilus = false) {
-        if (!isMidiActive) return; // Trava para impedir alteração no modo OFF
-        const oldMode = currentKeyboardMode;
+        if (!isMidiActive) return;
         currentKeyboardMode = mode;
         document.getElementById('disp-mode').innerText = mode;
         if (!output) return;
 
-        if (!fromNautilus) {
-            if (oldMode === "Baixo" && mode === "Solo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
-            else if (oldMode === "Solo" && mode === "Baixo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
-
-            if (mode === "Baixo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
-            else if (mode === "Solo") await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
-            else {
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
-                await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
-            }
+        // GARANTIA DE EXCLUSIVIDADE: Desliga sempre o oposto no hardware
+        if (mode === "Baixo") {
+            // Desliga SW2 (Solo) ANTES de qualquer coisa
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
+            // Se veio do celular, liga o SW1 (Baixo)
+            if (!fromNautilus) await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x01]);
+        } 
+        else if (mode === "Solo") {
+            // Desliga SW1 (Baixo) ANTES de qualquer coisa
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+            // Se veio do celular, liga o SW2 (Solo)
+            if (!fromNautilus) await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01]);
+        } 
+        else { // Natural: desliga ambos
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00]);
+            await sendSysex([0x43, 0x1B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00]);
         }
 
+        // --- PROCESSAMENTO DE CANAIS (TRANSPOSIÇÃO/VOLUME) ---
         if (mode === "Natural") {
             await sendSysex([0x43, 0x04, 0x07, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
             await sendSysex([0x43, 0x04, 0x05, 0x00, 0x23, 0x00, 0x00, 0x00, 0x7F]);
