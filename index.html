@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nautilus v1.5 Final Pro</title>
+    <title>Nautilus</title>
     <style>
         :root { --bg: #050505; --text: #f0f0f0; --accent: #0a84ff; --danger: #ff453a; --success: #32d74b; --panel: #111; }
         html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; overflow: hidden; height: 100%; width: 100%; position: fixed; touch-action: none; }
@@ -30,7 +30,7 @@
 <body>
     <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v1.5</h2>
+        <h2 style="color: var(--accent)">Nautilus v2</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -257,7 +257,7 @@
         const code = currentTransIndex;
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
         await updateChannelMutes(code);
-        let t = customT || [{101:127,102:0,103:0,104:0},{101:115,102:115,103:0,104:0},{101:105,102:105,103:80,104:50},{101:80,102:80,103:127,104:127}][code];
+        let t = customT || [{101:127,102:0,103:0,104:0},{101:115,102:115,103:0,104:0},{101:105,102:105,103:80,104:50},{101:100,102:100,103:127,104:127}][code];
         Object.keys(t).forEach(cc => {
             let log = Math.round(127 * Math.pow(t[cc] / 127, 1.5));
             if (output) output.send([0xB0, parseInt(cc), log]);
