@@ -30,7 +30,7 @@
 <body>
     <audio id="silent-audio" loop><source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
     <div id="setup" class="screen active">
-        <h2 style="color: var(--accent)">Nautilus v2</h2>
+        <h2 style="color: var(--accent)">Nautilus v2.1</h2>
         <button id="btn-init">MIDI</button>
         <select id="midi-in"></select>
         <select id="midi-out"></select>
@@ -228,7 +228,7 @@
         }
         await sendSysex([0x6D, 0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, code]);
         await updateChannelMutes(code);
-        const targets = [{101:127,102:0,103:0,104:0},{101:115,102:115,103:0,104:0},{101:105,102:105,103:80,104:50},{101:80,102:80,103:127,104:127}][code];
+        const targets = [{101:127,102:0,103:0,104:0},{101:115,102:115,103:0,104:0},{101:105,102:105,103:80,104:50},{101:100,102:100,103:127,104:127}][code];
         runTransition(targets);
     }
 
